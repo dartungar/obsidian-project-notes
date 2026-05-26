@@ -1,99 +1,264 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import {MarkdownView, Notice, normalizePath, Plugin, TFile} from "obsidian";
+import {buildProjectBaseContent} from "./bases/base-file";
+import {ProjectBasesView} from "./bases/project-bases-view";
+import {
+	PROJECT_BOARD_BASES_VIEW_TYPE,
+	PROJECT_LIST_BASES_VIEW_TYPE,
+	PROJECT_TABLE_BASES_VIEW_TYPE,
+	PROJECTS_VIEW_TYPE,
+} from "./constants";
+import {ProjectIndex, repairProjectFrontmatter} from "./project-metadata";
+import {buildProjectContent, buildProjectPath} from "./project-template";
+import type {ProjectCreationValues} from "./project-template";
+import {DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
+import type {SimpleProjectViewsSettings} from "./settings";
+import {CreateProjectModal} from "./ui/create-project-modal";
+import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
+import {ProjectSidebarView} from "./ui/project-sidebar-view";
 
-// Remember to rename these classes and interfaces!
+export default class SimpleProjectViewsPlugin extends Plugin {
+	settings: SimpleProjectViewsSettings;
+	projectIndex: ProjectIndex;
+	private projectToolbar: ProjectNoteToolbar;
+	private readonly projectBasesViews = new Set<ProjectBasesView>();
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
-
-	async onload() {
+	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		this.projectIndex = new ProjectIndex(this.app, () => this.settings);
+		this.projectToolbar = new ProjectNoteToolbar(this);
+
+		this.registerProjectSidebar();
+		this.registerProjectBasesViews();
+		this.registerCommands();
+		this.registerProjectRefreshEvents();
+
+		this.addSettingTab(new SimpleProjectViewsSettingTab(this.app, this));
+		this.addRibbonIcon("list-checks", "Open current projects", () => {
+			void this.openProjectSidebar();
 		});
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		this.app.workspace.onLayoutReady(() => this.refreshProjectSurfaces());
 	}
 
-	onunload() {
+	onunload(): void {
+		this.projectToolbar.removeAll();
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+	async loadSettings(): Promise<void> {
+		this.settings = normalizeSettings(await this.loadData() as Partial<SimpleProjectViewsSettings>);
 	}
 
-	async saveSettings() {
+	async saveSettings(): Promise<void> {
+		this.settings = normalizeSettings(this.settings);
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+		this.refreshProjectSurfaces();
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	refreshProjectSurfaces(): void {
+		this.projectToolbar.refreshAll();
+		this.refreshProjectSidebar();
+		this.refreshProjectBasesViews();
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	registerProjectBasesView(view: ProjectBasesView): void {
+		this.projectBasesViews.add(view);
+	}
+
+	unregisterProjectBasesView(view: ProjectBasesView): void {
+		this.projectBasesViews.delete(view);
+	}
+
+	private registerProjectSidebar(): void {
+		this.registerView(PROJECTS_VIEW_TYPE, (leaf) => new ProjectSidebarView(leaf, this));
+	}
+
+	private registerProjectBasesViews(): void {
+		this.registerBasesView(PROJECT_LIST_BASES_VIEW_TYPE, {
+			name: "Project list",
+			icon: "lucide-list-checks",
+			factory: (controller, containerEl) => new ProjectBasesView(controller, containerEl, this, PROJECT_LIST_BASES_VIEW_TYPE, "list"),
+		});
+
+		this.registerBasesView(PROJECT_BOARD_BASES_VIEW_TYPE, {
+			name: "Project board",
+			icon: "lucide-kanban",
+			factory: (controller, containerEl) => new ProjectBasesView(controller, containerEl, this, PROJECT_BOARD_BASES_VIEW_TYPE, "board"),
+		});
+
+		this.registerBasesView(PROJECT_TABLE_BASES_VIEW_TYPE, {
+			name: "Project table",
+			icon: "lucide-table-2",
+			factory: (controller, containerEl) => new ProjectBasesView(controller, containerEl, this, PROJECT_TABLE_BASES_VIEW_TYPE, "table"),
+		});
+	}
+
+	private registerCommands(): void {
+		this.addCommand({
+			id: "open-current-projects",
+			name: "Open current projects",
+			callback: () => {
+				void this.openProjectSidebar();
+			},
+		});
+
+		this.addCommand({
+			id: "create-project",
+			name: "Create project",
+			callback: () => {
+				new CreateProjectModal(this).open();
+			},
+		});
+
+		this.addCommand({
+			id: "create-project-base",
+			name: "Create project base",
+			callback: () => {
+				void this.createProjectBase();
+			},
+		});
+
+		this.addCommand({
+			id: "refresh-project-views",
+			name: "Refresh project views",
+			callback: () => this.refreshProjectSurfaces(),
+		});
+
+		this.addCommand({
+			id: "repair-current-note-project-properties",
+			name: "Repair current note project properties",
+			checkCallback: (checking) => {
+				const file = this.getActiveMarkdownFile();
+				if (!file) {
+					return false;
+				}
+
+				if (!checking) {
+					void repairProjectFrontmatter(this.app, file)
+						.then((changed) => {
+							new Notice(changed ? "Project properties repaired" : "No duplicate project properties found");
+							this.refreshProjectSurfaces();
+						});
+				}
+
+				return true;
+			},
+		});
+	}
+
+	async createProject(values: ProjectCreationValues): Promise<TFile> {
+		const configuredPath = buildProjectPath(this.settings, values);
+		const path = this.getAvailableMarkdownPath(normalizePath(configuredPath));
+		await this.ensureParentFolder(path);
+		const file = await this.app.vault.create(path, buildProjectContent(this.settings, values));
+		await this.app.workspace.getLeaf(false).openFile(file);
+		new Notice("Project created");
+		this.refreshProjectSurfaces();
+
+		return file;
+	}
+
+	private registerProjectRefreshEvents(): void {
+		this.registerEvent(this.app.workspace.on("file-open", () => this.refreshProjectSurfaces()));
+		this.registerEvent(this.app.workspace.on("layout-change", () => this.refreshProjectSurfaces()));
+		this.registerEvent(this.app.metadataCache.on("changed", () => this.refreshProjectSurfaces()));
+		this.registerEvent(this.app.vault.on("delete", () => this.refreshProjectSurfaces()));
+		this.registerEvent(this.app.vault.on("rename", () => this.refreshProjectSurfaces()));
+	}
+
+	private refreshProjectSidebar(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE)) {
+			if (leaf.view instanceof ProjectSidebarView) {
+				leaf.view.render();
+			}
+		}
+	}
+
+	private refreshProjectBasesViews(): void {
+		for (const view of this.projectBasesViews) {
+			view.render();
+		}
+	}
+
+	private getActiveMarkdownFile(): TFile | null {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+		return view?.file ?? null;
+	}
+
+	private async openProjectSidebar(): Promise<void> {
+		const leaves = this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE);
+		const existingLeaf = leaves[0];
+		if (existingLeaf) {
+			await this.app.workspace.revealLeaf(existingLeaf);
+			return;
+		}
+
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) {
+			new Notice("Could not open current projects");
+			return;
+		}
+
+		await leaf.setViewState({
+			type: PROJECTS_VIEW_TYPE,
+			active: true,
+		});
+		await this.app.workspace.revealLeaf(leaf);
+	}
+
+	private async createProjectBase(): Promise<void> {
+		const configuredPath = this.settings.baseFilePath.trim() || DEFAULT_SETTINGS.baseFilePath;
+		const path = normalizePath(configuredPath.endsWith(".base") ? configuredPath : `${configuredPath}.base`);
+		const existingFile = this.app.vault.getAbstractFileByPath(path);
+
+		if (existingFile instanceof TFile) {
+			await this.app.workspace.getLeaf(false).openFile(existingFile);
+			new Notice("Project base already exists");
+			return;
+		}
+
+		await this.ensureParentFolder(path);
+		const file = await this.app.vault.create(path, buildProjectBaseContent(this.settings));
+		await this.app.workspace.getLeaf(false).openFile(file);
+		new Notice("Project base created");
+	}
+
+	private getAvailableMarkdownPath(path: string): string {
+		if (!this.app.vault.getAbstractFileByPath(path)) {
+			return path;
+		}
+
+		const extension = ".md";
+		const basePath = path.endsWith(extension) ? path.slice(0, -extension.length) : path;
+		for (let index = 2; index < 1000; index += 1) {
+			const candidate = `${basePath} ${index}${extension}`;
+			if (!this.app.vault.getAbstractFileByPath(candidate)) {
+				return candidate;
+			}
+		}
+
+		return `${basePath} ${Date.now()}${extension}`;
+	}
+
+	private async ensureParentFolder(path: string): Promise<void> {
+		const lastSlashIndex = path.lastIndexOf("/");
+		if (lastSlashIndex === -1) {
+			return;
+		}
+
+		const folderPath = path.slice(0, lastSlashIndex);
+		if (this.app.vault.getAbstractFileByPath(folderPath)) {
+			return;
+		}
+
+		const parts = folderPath.split("/");
+		let currentPath = "";
+		for (const part of parts) {
+			currentPath = currentPath ? `${currentPath}/${part}` : part;
+			if (!this.app.vault.getAbstractFileByPath(currentPath)) {
+				await this.app.vault.createFolder(currentPath);
+			}
+		}
 	}
 }

@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-simple-project-views",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Project-aware controls, side pane, and Bases views for Obsidian project notes.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {

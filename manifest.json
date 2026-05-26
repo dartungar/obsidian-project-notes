@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "simple-project-views",
+	"name": "Simple Project Views",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"minAppVersion": "1.10.0",
+	"description": "Project-aware controls, side pane, and Bases views for Obsidian project notes.",
+	"author": "dartungar",
 	"isDesktopOnly": false
 }
