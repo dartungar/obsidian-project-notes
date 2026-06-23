@@ -1,5 +1,5 @@
 import {BasesView, QueryController, setIcon, setTooltip, TFile} from "obsidian";
-import type {BasesEntry, BasesPropertyId, BasesSortConfig} from "obsidian";
+import type {BasesEntry, BasesEntryGroup, BasesSortConfig} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import {getStatusColor} from "../settings";
@@ -7,14 +7,15 @@ import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/p
 import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
 import {renderProjectBoard} from "./project-board";
+import {resolveProjectViewProperties} from "./view-properties";
+import type {ProjectViewColumn, ResolvedProjectViewProperties} from "./view-properties";
 
 export type ProjectBasesVariant = "list" | "table" | "board";
 
-interface ProjectTableColumn {
-	key: string;
+interface ProjectGroup {
+	hasHeading: boolean;
 	label: string;
-	propertyId: BasesPropertyId;
-	field?: ProjectControlField;
+	projects: ProjectInfo[];
 }
 
 const TABLE_FIELD_LABELS: Partial<Record<ProjectControlField, string>> = {
@@ -46,9 +47,11 @@ export class ProjectBasesView extends BasesView {
 
 	public render(): void {
 		this.containerEl.empty();
-		const projects = this.variant === "table"
-			? this.getProjectsFromEntries(this.data.data)
-			: this.getProjectsFromData();
+		const viewProperties = this.getViewProperties();
+		const groups = this.variant === "board" ? [] : this.getProjectGroups();
+		const projects = this.variant === "board"
+			? this.getBoardProjects()
+			: getProjectsFromGroups(groups);
 
 		if (projects.length === 0) {
 			this.containerEl.createDiv({
@@ -59,27 +62,32 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		if (this.variant === "board") {
-			this.renderBoard(projects);
+			this.renderBoard(projects, viewProperties);
 			return;
 		}
 
 		if (this.variant === "table") {
-			this.renderTable(projects);
+			this.renderTable(groups, viewProperties);
 			return;
 		}
 
-		this.renderList(projects);
+		this.renderList(groups, viewProperties);
 	}
 
-	private getProjectsFromData(): ProjectInfo[] {
-		const projects: ProjectInfo[] = [];
+	private getProjectGroups(): ProjectGroup[] {
 		const seenPaths = new Set<string>();
 
-		for (const group of this.data.groupedData) {
-			projects.push(...this.getProjectsFromEntries(group.entries, seenPaths));
-		}
+		return this.data.groupedData
+			.map((group) => ({
+				hasHeading: group.hasKey(),
+				label: getGroupLabel(group),
+				projects: this.getProjectsFromEntries(group.entries, seenPaths),
+			}))
+			.filter((group) => group.projects.length > 0);
+	}
 
-		return projects;
+	private getBoardProjects(): ProjectInfo[] {
+		return this.getProjectsFromEntries(this.data.data);
 	}
 
 	private getProjectsFromEntries(entries: BasesEntry[], seenPaths = new Set<string>()): ProjectInfo[] {
@@ -100,16 +108,22 @@ export class ProjectBasesView extends BasesView {
 		return projects;
 	}
 
-	private renderList(projects: ProjectInfo[]): void {
+	private renderList(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {
 		const listEl = this.containerEl.createDiv({cls: "spv-bases-list"});
 
-		for (const project of projects) {
-			this.renderListProject(listEl, project);
+		for (const group of groups) {
+			if (group.hasHeading) {
+				this.renderGroupHeading(listEl, group.label);
+			}
+
+			for (const project of group.projects) {
+				this.renderListProject(listEl, project, viewProperties);
+			}
 		}
 	}
 
-	private renderTable(projects: ProjectInfo[]): void {
-		const columns = this.getTableColumns();
+	private renderTable(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {
+		const columns = viewProperties.tableColumns;
 
 		const tableEl = this.containerEl.createEl("table", {cls: "spv-project-table"});
 		const theadEl = tableEl.createEl("thead");
@@ -120,48 +134,78 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		const tbodyEl = tableEl.createEl("tbody");
-		for (const project of projects) {
-			const rowEl = tbodyEl.createEl("tr");
-			for (const column of columns) {
-				this.renderTableCell(rowEl, project, column);
+		for (const group of groups) {
+			if (group.hasHeading) {
+				const groupRowEl = tbodyEl.createEl("tr", {cls: "spv-table-group-row"});
+				groupRowEl.createEl("td", {
+					attr: {colspan: String(columns.length)},
+					text: group.label,
+				});
+			}
+
+			for (const project of group.projects) {
+				const rowEl = tbodyEl.createEl("tr");
+				for (const column of columns) {
+					this.renderTableCell(rowEl, project, column);
+				}
 			}
 		}
 	}
 
-	private renderBoard(projects: ProjectInfo[]): void {
-		renderProjectBoard(this.containerEl, this.plugin, projects);
+	private renderBoard(projects: ProjectInfo[], viewProperties: ResolvedProjectViewProperties): void {
+		renderProjectBoard(this.containerEl, this.plugin, projects, {
+			fields: viewProperties.controlFields,
+			labels: this.getFieldLabels(),
+			showTitleIcon: viewProperties.showTitleIcon,
+		});
 	}
 
-	private renderListProject(containerEl: HTMLElement, project: ProjectInfo): void {
+	private renderListProject(
+		containerEl: HTMLElement,
+		project: ProjectInfo,
+		viewProperties: ResolvedProjectViewProperties,
+	): void {
 		const isEditing = this.editingListProjects.has(project.file.path);
+		const canEdit = viewProperties.controlFields.length > 0;
+		const showStatus = viewProperties.controlFields.includes("status");
 		const rowEl = containerEl.createDiv({cls: "spv-bases-row spv-bases-row-compact"});
 		rowEl.classList.toggle("is-editing", isEditing);
 
 		const headerEl = rowEl.createDiv({cls: "spv-list-row-header"});
 		createProjectTitleButton(headerEl, project, () => {
 			void this.app.workspace.getLeaf(false).openFile(project.file);
+		}, {
+			showIcon: viewProperties.showTitleIcon,
 		});
 
-		const actionsEl = headerEl.createDiv({cls: "spv-list-row-actions"});
-		this.renderStatusBadge(actionsEl, project.status);
-		const editButtonEl = actionsEl.createEl("button", {
-			cls: "clickable-icon spv-list-row-edit",
-			attr: {"aria-label": `${isEditing ? "Finish editing" : "Edit"} ${project.title}`},
-		});
-		setIcon(editButtonEl, isEditing ? "check" : "pencil");
-		editButtonEl.addEventListener("click", () => {
-			if (isEditing) {
-				this.editingListProjects.delete(project.file.path);
-			} else {
-				this.editingListProjects.add(project.file.path);
+		if (showStatus || canEdit) {
+			const actionsEl = headerEl.createDiv({cls: "spv-list-row-actions"});
+			if (showStatus) {
+				this.renderStatusBadge(actionsEl, project.status);
 			}
-			this.render();
-		});
 
-		if (isEditing) {
+			if (canEdit) {
+				const editButtonEl = actionsEl.createEl("button", {
+					cls: "clickable-icon spv-list-row-edit",
+					attr: {"aria-label": `${isEditing ? "Finish editing" : "Edit"} ${project.title}`},
+				});
+				setIcon(editButtonEl, isEditing ? "check" : "pencil");
+				editButtonEl.addEventListener("click", () => {
+					if (isEditing) {
+						this.editingListProjects.delete(project.file.path);
+					} else {
+						this.editingListProjects.add(project.file.path);
+					}
+					this.render();
+				});
+			}
+		}
+
+		if (isEditing && canEdit) {
 			const editPanelEl = rowEl.createDiv({cls: "spv-list-edit-panel"});
 			renderProjectControls(editPanelEl, this.plugin.app, this.plugin.settings, project, {
 				controlClass: "spv-list-edit-controls",
+				fields: viewProperties.controlFields,
 				labels: this.getFieldLabels(),
 				afterUpdate: () => this.plugin.refreshProjectSurfaces(),
 			});
@@ -170,57 +214,13 @@ export class ProjectBasesView extends BasesView {
 
 		renderProjectControls(rowEl, this.plugin.app, this.plugin.settings, project, {
 			controlClass: "spv-list-readonly-controls",
-			fields: getNonEmptyProjectPropertyFieldIds(project),
+			fields: this.getVisibleListSummaryFields(project, viewProperties.controlFields),
 			labels: this.getFieldLabels(),
 			readOnly: true,
 		});
 	}
 
-	private getTableColumns(): ProjectTableColumn[] {
-		const defaultColumns: ProjectTableColumn[] = [
-			{key: "title", label: "Project", propertyId: "file.name"},
-		];
-		if (this.plugin.settings.enabledProperties.icon && this.plugin.settings.propertyNames.icon.trim()) {
-			defaultColumns.push({
-				key: "icon",
-				label: "Icon",
-				field: "icon",
-				propertyId: getNotePropertyId(this.plugin.settings.propertyNames.icon),
-			});
-		}
-		defaultColumns.push({key: "status", label: "Status", field: "status", propertyId: getNotePropertyId(this.plugin.settings.propertyNames.status)});
-		for (const property of this.plugin.settings.projectProperties) {
-			if (!property.name.trim()) {
-				continue;
-			}
-
-			defaultColumns.push({
-				key: property.id,
-				label: property.label,
-				field: property.id,
-				propertyId: getNotePropertyId(property.name),
-			});
-		}
-
-		const columnsByProperty = new Map(defaultColumns.map((column) => [column.propertyId, column]));
-		const orderedColumns = this.config
-			.getOrder()
-			.map((propertyId) => columnsByProperty.get(propertyId))
-			.filter((column): column is ProjectTableColumn => column !== undefined);
-		const orderedPropertyIds = new Set(orderedColumns.map((column) => column.propertyId));
-		const missingColumns = defaultColumns.filter((column) => !orderedPropertyIds.has(column.propertyId));
-
-		return this.withConfiguredDisplayNames([...orderedColumns, ...missingColumns]);
-	}
-
-	private withConfiguredDisplayNames(columns: ProjectTableColumn[]): ProjectTableColumn[] {
-		return columns.map((column) => ({
-			...column,
-			label: this.config.getDisplayName(column.propertyId) || column.label,
-		}));
-	}
-
-	private renderTableHeader(rowEl: HTMLTableRowElement, column: ProjectTableColumn): void {
+	private renderTableHeader(rowEl: HTMLTableRowElement, column: ProjectViewColumn): void {
 		const headerEl = rowEl.createEl("th");
 		const sort = this.getColumnSort(column);
 		headerEl.setAttribute("aria-sort", sort ? (sort.direction === "ASC" ? "ascending" : "descending") : "none");
@@ -249,11 +249,13 @@ export class ProjectBasesView extends BasesView {
 		}
 	}
 
-	private renderTableCell(rowEl: HTMLTableRowElement, project: ProjectInfo, column: ProjectTableColumn): void {
+	private renderTableCell(rowEl: HTMLTableRowElement, project: ProjectInfo, column: ProjectViewColumn): void {
 		const cellEl = rowEl.createEl("td");
 		if (column.key === "title") {
 			createProjectTitleButton(cellEl, project, () => {
 				void this.app.workspace.getLeaf(false).openFile(project.file);
+			}, {
+				showIcon: false,
 			});
 			return;
 		}
@@ -270,7 +272,7 @@ export class ProjectBasesView extends BasesView {
 		});
 	}
 
-	private getColumnSort(column: ProjectTableColumn): BasesSortConfig | null {
+	private getColumnSort(column: ProjectViewColumn): BasesSortConfig | null {
 		return this.config.getSort().find((sort) => sort.property === column.propertyId) ?? null;
 	}
 
@@ -291,8 +293,43 @@ export class ProjectBasesView extends BasesView {
 
 		return labels;
 	}
+
+	private getViewProperties(): ResolvedProjectViewProperties {
+		return resolveProjectViewProperties(
+			this.plugin.settings,
+			this.config.getOrder(),
+			(propertyId) => this.config.getDisplayName(propertyId),
+		);
+	}
+
+	private getVisibleListSummaryFields(project: ProjectInfo, fields: ProjectControlField[]): ProjectControlField[] {
+		const nonEmptyFields = new Set(getNonEmptyProjectPropertyFieldIds(project));
+
+		return fields.filter((field) => field !== "icon" && field !== "status" && nonEmptyFields.has(field));
+	}
+
+	private renderGroupHeading(containerEl: HTMLElement, label: string): void {
+		containerEl.createDiv({
+			cls: "spv-bases-group-heading",
+			text: label,
+		});
+	}
 }
 
-function getNotePropertyId(propertyName: string): BasesPropertyId {
-	return `note.${propertyName}` as BasesPropertyId;
+function getGroupLabel(group: BasesEntryGroup): string {
+	if (!group.hasKey()) {
+		return "";
+	}
+
+	const label = group.key?.toString().trim() ?? "";
+	return label || "No value";
+}
+
+function getProjectsFromGroups(groups: ProjectGroup[]): ProjectInfo[] {
+	const projects: ProjectInfo[] = [];
+	for (const group of groups) {
+		projects.push(...group.projects);
+	}
+
+	return projects;
 }

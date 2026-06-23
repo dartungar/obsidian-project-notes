@@ -4,7 +4,7 @@ import type {SimpleProjectViewsSettings} from "../settings";
 export function buildProjectBaseContent(settings: SimpleProjectViewsSettings): string {
 	const filters = buildGlobalFilters(settings);
 	const properties = buildProperties(settings);
-	const tableOrder = buildTableOrder(settings);
+	const defaultOrder = buildDefaultOrder();
 
 	return [
 		"filters:",
@@ -14,14 +14,20 @@ export function buildProjectBaseContent(settings: SimpleProjectViewsSettings): s
 		"views:",
 		`  - type: ${PROJECT_LIST_BASES_VIEW_TYPE}`,
 		"    name: Projects",
+		"    order:",
+		...defaultOrder.map((property) => `      - ${property}`),
 		`  - type: ${PROJECT_TABLE_BASES_VIEW_TYPE}`,
 		"    name: Project table",
+		"    order:",
+		...defaultOrder.map((property) => `      - ${property}`),
 		`  - type: ${PROJECT_BOARD_BASES_VIEW_TYPE}`,
 		"    name: Project board",
+		"    order:",
+		...defaultOrder.map((property) => `      - ${property}`),
 		"  - type: table",
 		"    name: Native table",
 		"    order:",
-		...tableOrder.map((property) => `      - ${property}`),
+		...defaultOrder.map((property) => `      - ${property}`),
 		"",
 	].join("\n");
 }
@@ -70,15 +76,8 @@ function buildProperties(settings: SimpleProjectViewsSettings): string[] {
 	return properties;
 }
 
-function buildTableOrder(settings: SimpleProjectViewsSettings): string[] {
-	return [
-		"file.name",
-		...(settings.enabledProperties.icon && settings.propertyNames.icon.trim() ? [propertyRef(settings.propertyNames.icon)] : []),
-		...(settings.propertyNames.status.trim() ? [propertyRef(settings.propertyNames.status)] : []),
-		...settings.projectProperties
-			.filter((property) => property.name.trim().length > 0)
-			.map((property) => propertyRef(property.name)),
-	];
+function buildDefaultOrder(): string[] {
+	return ["file.name"];
 }
 
 function propertyDisplay(propertyName: string, displayName: string): string[] {

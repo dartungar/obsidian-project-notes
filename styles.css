@@ -151,6 +151,19 @@ button.spv-settings-tab.is-active {
 	padding: var(--size-2-3);
 }
 
+.spv-bases-group-heading,
+.spv-table-group-row td {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium);
+}
+
+.spv-bases-group-heading {
+	border-radius: var(--radius-s);
+	padding: var(--size-2-2) var(--size-2-3);
+}
+
 .spv-list-row-actions {
 	align-items: center;
 	display: inline-flex;

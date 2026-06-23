@@ -4,6 +4,7 @@ import type {ProjectInfo} from "../project-metadata";
 import {updateProjectProperty} from "../project-metadata";
 import {getStatusColor} from "../settings";
 import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/project-controls";
+import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
 
 const PROJECT_DRAG_TYPE = "application/x-simple-project-views-project";
@@ -16,12 +17,19 @@ interface ProjectDropTarget {
 	status: string;
 }
 
+interface ProjectBoardRenderOptions {
+	fields: ProjectControlField[];
+	labels: Partial<Record<ProjectControlField, string>>;
+	showTitleIcon: boolean;
+}
+
 const editingBoardCards = new Set<string>();
 
 export function renderProjectBoard(
 	containerEl: HTMLElement,
 	plugin: SimpleProjectViewsPlugin,
 	projects: ProjectInfo[],
+	options: ProjectBoardRenderOptions,
 ): void {
 	const orderedProjects = getOrderedBoardProjects(projects, plugin.settings.boardCardOrder);
 	const statuses = getBoardStatuses(plugin.settings.statusOptions, projects, plugin.settings.boardColumnOrder);
@@ -30,7 +38,7 @@ export function renderProjectBoard(
 	boardEl.style.setProperty("--spv-board-column-width", `${plugin.settings.boardColumnWidth}px`);
 
 	for (const status of statuses) {
-		renderBoardColumn(boardEl, plugin, orderedProjects, statuses, status, collapsedStatuses.has(status));
+		renderBoardColumn(boardEl, plugin, orderedProjects, statuses, status, collapsedStatuses.has(status), options);
 	}
 }
 
@@ -41,6 +49,7 @@ function renderBoardColumn(
 	statuses: string[],
 	status: string,
 	isCollapsed: boolean,
+	options: ProjectBoardRenderOptions,
 ): void {
 	const columnProjects = projects.filter((project) => project.status === status);
 	const title = status || "No status";
@@ -106,7 +115,7 @@ function renderBoardColumn(
 
 	const bodyEl = columnEl.createDiv({cls: "spv-board-column-body"});
 	for (const project of columnProjects) {
-		renderBoardCard(bodyEl, plugin, projects, project);
+		renderBoardCard(bodyEl, plugin, projects, project, options);
 	}
 	bodyEl.createDiv({
 		cls: "spv-board-card-placeholder",
@@ -119,6 +128,7 @@ function renderBoardCard(
 	plugin: SimpleProjectViewsPlugin,
 	projects: ProjectInfo[],
 	project: ProjectInfo,
+	options: ProjectBoardRenderOptions,
 ): void {
 	const isEditing = editingBoardCards.has(project.file.path);
 	const cardEl = containerEl.createDiv({cls: "spv-board-card"});
@@ -171,40 +181,52 @@ function renderBoardCard(
 	const headerEl = cardEl.createDiv({cls: "spv-project-summary-header"});
 	createProjectTitleButton(headerEl, project, () => {
 		void plugin.app.workspace.getLeaf(false).openFile(project.file);
+	}, {
+		showIcon: options.showTitleIcon,
 	});
 
-	const editButtonEl = headerEl.createEl("button", {
-		cls: "clickable-icon spv-board-card-edit",
-		attr: {"aria-label": `${isEditing ? "Finish editing" : "Edit"} ${project.title}`},
-	});
-	setIcon(editButtonEl, isEditing ? "check" : "pencil");
-	editButtonEl.addEventListener("click", () => {
-		if (isEditing) {
-			editingBoardCards.delete(project.file.path);
-		} else {
-			editingBoardCards.add(project.file.path);
-		}
+	if (options.fields.length > 0) {
+		const editButtonEl = headerEl.createEl("button", {
+			cls: "clickable-icon spv-board-card-edit",
+			attr: {"aria-label": `${isEditing ? "Finish editing" : "Edit"} ${project.title}`},
+		});
+		setIcon(editButtonEl, isEditing ? "check" : "pencil");
+		editButtonEl.addEventListener("click", () => {
+			if (isEditing) {
+				editingBoardCards.delete(project.file.path);
+			} else {
+				editingBoardCards.add(project.file.path);
+			}
 
-		plugin.refreshProjectSurfaces();
-	});
+			plugin.refreshProjectSurfaces();
+		});
+	}
 
 	const afterUpdate = () => {
 		plugin.refreshProjectSurfaces();
 	};
 
-	const fieldsContainerEl = cardEl.createDiv({cls: "spv-board-card-fields-container"});
-
-	if (isEditing) {
+	if (isEditing && options.fields.length > 0) {
+		const fieldsContainerEl = cardEl.createDiv({cls: "spv-board-card-fields-container"});
 		renderProjectControls(fieldsContainerEl, plugin.app, plugin.settings, project, {
 			controlClass: "spv-board-card-fields",
+			fields: options.fields,
+			labels: options.labels,
 			afterUpdate,
 		});
 		return;
 	}
 
+	const readOnlyFields = getVisibleCardFields(project, options.fields);
+	if (readOnlyFields.length === 0) {
+		return;
+	}
+
+	const fieldsContainerEl = cardEl.createDiv({cls: "spv-board-card-fields-container"});
 	renderProjectControls(fieldsContainerEl, plugin.app, plugin.settings, project, {
 		controlClass: "spv-board-card-readonly-fields",
-		fields: getNonEmptyProjectPropertyFieldIds(project),
+		fields: readOnlyFields,
+		labels: options.labels,
 		readOnly: true,
 	});
 }
@@ -421,9 +443,21 @@ function getOrderedBoardProjects(projects: ProjectInfo[], savedOrder: string[]):
 		.map((path) => projectsByPath.get(path))
 		.filter((project): project is ProjectInfo => project !== undefined);
 	const orderedPaths = new Set(orderedProjects.map((project) => project.file.path));
-	const unsavedProjects = projects.filter((project) => !orderedPaths.has(project.file.path));
+	const unsavedProjects = projects
+		.filter((project) => !orderedPaths.has(project.file.path))
+		.sort(compareBoardProjects);
 
 	return [...orderedProjects, ...unsavedProjects];
+}
+
+function getVisibleCardFields(project: ProjectInfo, fields: ProjectControlField[]): ProjectControlField[] {
+	const nonEmptyFields = new Set(getNonEmptyProjectPropertyFieldIds(project));
+
+	return fields.filter((field) => field !== "icon" && field !== "status" && nonEmptyFields.has(field));
+}
+
+function compareBoardProjects(a: ProjectInfo, b: ProjectInfo): number {
+	return a.title.localeCompare(b.title) || a.file.path.localeCompare(b.file.path);
 }
 
 function reorderProjectPaths(
