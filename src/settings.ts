@@ -1,4 +1,4 @@
-import {App, Notice, PluginSettingTab, Setting} from "obsidian";
+import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting} from "obsidian";
 import type SimpleProjectViewsPlugin from "./main";
 import {
 	cloneProjectProperties,
@@ -601,7 +601,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 				button
 					.setIcon("trash")
 					.onClick(async () => {
-						await this.deleteStatus(status);
+						await this.confirmDeleteStatus(status);
 					});
 			});
 	}
@@ -735,7 +735,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setIcon("trash")
 					.setTooltip("Delete property")
 					.onClick(async () => {
-						await this.deleteProjectProperty(index);
+						await this.confirmDeleteProjectProperty(index);
 					});
 			});
 
@@ -965,6 +965,24 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.display();
 	}
 
+	private async confirmDeleteProjectProperty(index: number): Promise<void> {
+		const property = this.plugin.settings.projectProperties[index];
+		if (!property) {
+			return;
+		}
+
+		const propertyName = property.label || property.name || "Untitled property";
+		const confirmed = await confirmDelete(this.app, {
+			title: "Delete property",
+			message: `Delete "${propertyName}"? This removes the property from project views and new project templates. Existing note values stay in your notes.`,
+			confirmText: "Delete property",
+		});
+
+		if (confirmed) {
+			await this.deleteProjectProperty(index);
+		}
+	}
+
 	private async deleteProjectProperty(index: number): Promise<void> {
 		const property = this.plugin.settings.projectProperties[index];
 		if (property) {
@@ -1043,6 +1061,18 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.display();
 	}
 
+	private async confirmDeleteStatus(status: string): Promise<void> {
+		const confirmed = await confirmDelete(this.app, {
+			title: "Delete status",
+			message: `Delete "${status}"? This removes the status from controls and board columns. Notes already using this status keep their value.`,
+			confirmText: "Delete status",
+		});
+
+		if (confirmed) {
+			await this.deleteStatus(status);
+		}
+	}
+
 	private async deleteStatus(status: string): Promise<void> {
 		this.plugin.settings.statusOptions = this.plugin.settings.statusOptions.filter((candidate) => candidate !== status);
 		this.plugin.settings.boardColumnOrder = this.plugin.settings.boardColumnOrder.filter((candidate) => candidate !== status);
@@ -1056,5 +1086,64 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName(name)
 			.setHeading();
+	}
+}
+
+interface DeleteConfirmationOptions {
+	title: string;
+	message: string;
+	confirmText: string;
+}
+
+function confirmDelete(app: App, options: DeleteConfirmationOptions): Promise<boolean> {
+	return new Promise((resolve) => {
+		new DeleteConfirmationModal(app, options, resolve).open();
+	});
+}
+
+class DeleteConfirmationModal extends Modal {
+	private didResolve = false;
+
+	constructor(
+		app: App,
+		private readonly options: DeleteConfirmationOptions,
+		private readonly resolve: (confirmed: boolean) => void,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.setTitle(this.options.title);
+		this.contentEl.empty();
+		this.contentEl.createEl("p", {text: this.options.message});
+
+		const actionsEl = this.contentEl.createDiv({cls: "spv-modal-actions"});
+		new ButtonComponent(actionsEl)
+			.setButtonText("Cancel")
+			.onClick(() => this.closeWithResult(false));
+
+		new ButtonComponent(actionsEl)
+			.setButtonText(this.options.confirmText)
+			.setWarning()
+			.onClick(() => this.closeWithResult(true));
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+		this.resolveOnce(false);
+	}
+
+	private closeWithResult(confirmed: boolean): void {
+		this.resolveOnce(confirmed);
+		this.close();
+	}
+
+	private resolveOnce(confirmed: boolean): void {
+		if (this.didResolve) {
+			return;
+		}
+
+		this.didResolve = true;
+		this.resolve(confirmed);
 	}
 }
