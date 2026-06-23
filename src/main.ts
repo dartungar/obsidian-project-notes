@@ -34,7 +34,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.registerProjectRefreshEvents();
 
 		this.addSettingTab(new SimpleProjectViewsSettingTab(this.app, this));
-		this.addRibbonIcon("list-checks", "Open current projects", () => {
+		this.addRibbonIcon("list-checks", "Open projects", () => {
 			void this.openProjectSidebar();
 		});
 
@@ -95,8 +95,8 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 
 	private registerCommands(): void {
 		this.addCommand({
-			id: "open-current-projects",
-			name: "Open current projects",
+			id: "open-projects",
+			name: "Open projects",
 			callback: () => {
 				void this.openProjectSidebar();
 			},
@@ -196,7 +196,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) {
-			new Notice("Could not open current projects");
+			new Notice("Could not open projects");
 			return;
 		}
 

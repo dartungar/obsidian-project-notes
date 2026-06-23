@@ -12,7 +12,6 @@ export interface ProjectInfo {
 	icon: string;
 	status: string;
 	properties: ProjectPropertyValue[];
-	isCurrent: boolean;
 	warnings: string[];
 }
 
@@ -35,7 +34,6 @@ export class ProjectIndex {
 			.filter((definition) => definition.name.trim().length > 0)
 			.map((definition) => readProjectPropertyValue(definition, frontmatter[definition.name]));
 		const icon = settings.enabledProperties.icon ? readString(frontmatter[settings.propertyNames.icon]) : "";
-		const isCurrent = settings.activeStatuses.includes(status);
 
 		return {
 			file,
@@ -43,7 +41,6 @@ export class ProjectIndex {
 			icon,
 			status,
 			properties,
-			isCurrent,
 			warnings: getProjectWarnings(properties),
 		};
 	}
@@ -54,10 +51,6 @@ export class ProjectIndex {
 			.map((file) => this.getProject(file))
 			.filter((project): project is ProjectInfo => project !== null)
 			.sort(compareProjects);
-	}
-
-	getCurrentProjects(): ProjectInfo[] {
-		return this.getProjects().filter((project) => project.isCurrent);
 	}
 
 	matchesProjectCriteria(file: TFile): boolean {

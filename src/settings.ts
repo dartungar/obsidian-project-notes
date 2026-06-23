@@ -49,7 +49,6 @@ export interface SimpleProjectViewsSettings {
 	projectProperties: ProjectPropertyDefinition[];
 	statusOptions: string[];
 	statusColors: Record<string, string>;
-	activeStatuses: string[];
 	showProjectToolbar: boolean;
 	noteToolbarPosition: ProjectToolbarPosition;
 	projectCreationPathTemplate: string;
@@ -111,7 +110,6 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 		done: "#35a35c",
 		cancelled: "#6f6f6f",
 	},
-	activeStatuses: ["todo", "in-progress", "blocked"],
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
@@ -160,7 +158,6 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		? normalizeProjectPropertyDefinitions(settings.projectProperties)
 		: migrateLegacyProjectProperties(propertyNames, enabledProperties);
 	const statusOptions = normalizeStatusOptions(settings.statusOptions);
-	const activeStatuses = normalizeStatusOptions(settings.activeStatuses).filter((status) => statusOptions.includes(status));
 
 	return {
 		...DEFAULT_SETTINGS,
@@ -170,7 +167,6 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectProperties,
 		statusOptions,
 		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
-		activeStatuses,
 		noteToolbarPosition: normalizeProjectToolbarPosition(settings.noteToolbarPosition),
 		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(settings.projectCreationPathTemplate),
 		projectCreationTemplate: typeof settings.projectCreationTemplate === "string" ? settings.projectCreationTemplate : DEFAULT_SETTINGS.projectCreationTemplate,
@@ -282,6 +278,8 @@ function unique(values: string[]): string[] {
 export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	plugin: SimpleProjectViewsPlugin;
 	private activeTab: SettingsTabId = "general";
+	private editingStatus: string | null = null;
+	private readonly expandedProjectProperties = new Set<string>();
 
 	constructor(app: App, plugin: SimpleProjectViewsPlugin) {
 		super(app, plugin);
@@ -514,6 +512,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 	private displayStatuses(containerEl: HTMLElement): void {
 		this.addHeading(containerEl, "Statuses");
+		this.addStatusPropertySetting(containerEl);
 
 		for (let index = 0; index < this.plugin.settings.statusOptions.length; index += 1) {
 			const status = this.plugin.settings.statusOptions[index];
@@ -526,23 +525,54 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	}
 
 	private addStatusSetting(containerEl: HTMLElement, status: string, index: number): void {
-		new Setting(containerEl)
-			.setName(status)
-			.setDesc("Available in project controls. Current statuses appear in the side pane.")
-			.setClass("spv-status-setting")
-			.addText((text) => {
+		const isEditingName = this.editingStatus === status;
+		const setting = new Setting(containerEl)
+			.setName(isEditingName ? "Status name" : status)
+			.setClass("spv-status-setting");
+
+		if (isEditingName) {
+			setting.addText((text) => {
+				let shouldSaveName = true;
+				const saveStatusName = () => {
+					if (!shouldSaveName) {
+						return;
+					}
+
+					this.editingStatus = null;
+					void this.renameStatus(index, status, text.getValue());
+				};
+
 				text
 					.setValue(status)
 					.setPlaceholder(DEFAULT_SETTINGS.propertyNames.status);
-				text.inputEl.addEventListener("blur", () => {
-					void this.renameStatus(index, status, text.getValue());
-				});
+				text.inputEl.addEventListener("blur", saveStatusName);
 				text.inputEl.addEventListener("keydown", (event) => {
 					if (event.key === "Enter") {
 						text.inputEl.blur();
+					} else if (event.key === "Escape") {
+						shouldSaveName = false;
+						this.editingStatus = null;
+						this.display();
 					}
 				});
-			})
+
+				window.requestAnimationFrame(() => {
+					text.inputEl.focus();
+					text.inputEl.select();
+				});
+			});
+		} else {
+			setting.addExtraButton((button) => {
+				button
+					.setIcon("pencil")
+					.onClick(() => {
+						this.editingStatus = status;
+						this.display();
+					});
+			});
+		}
+
+		setting
 			.addColorPicker((color) => {
 				color
 					.setValue(getStatusColor(this.plugin.settings, status))
@@ -551,18 +581,9 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			})
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.activeStatuses.includes(status))
-					.onChange(async (value) => {
-						this.setStatusCurrent(status, value);
-						await this.plugin.saveSettings();
-					});
-			})
 			.addExtraButton((button) => {
 				button
 					.setIcon("arrow-up")
-					.setTooltip("Move up")
 					.setDisabled(index === 0)
 					.onClick(async () => {
 						await this.moveStatus(index, index - 1);
@@ -571,7 +592,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			.addExtraButton((button) => {
 				button
 					.setIcon("arrow-down")
-					.setTooltip("Move down")
 					.setDisabled(index === this.plugin.settings.statusOptions.length - 1)
 					.onClick(async () => {
 						await this.moveStatus(index, index + 1);
@@ -580,7 +600,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			.addExtraButton((button) => {
 				button
 					.setIcon("trash")
-					.setTooltip("Delete status")
 					.onClick(async () => {
 						await this.deleteStatus(status);
 					});
@@ -612,7 +631,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	private displayProperties(containerEl: HTMLElement): void {
 		this.addHeading(containerEl, "Properties");
 
-		this.addStatusPropertySetting(containerEl);
 		this.addIconPropertySetting(containerEl);
 
 		for (let index = 0; index < this.plugin.settings.projectProperties.length; index += 1) {
@@ -627,8 +645,8 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 	private addStatusPropertySetting(containerEl: HTMLElement): void {
 		new Setting(containerEl)
-			.setName("Status property")
-			.setDesc("Status stays special because it drives current projects and board columns.")
+			.setName("Status note property")
+			.setDesc("Property name used to store project status.")
 			.addText((text) => {
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.propertyNames.status)
@@ -675,11 +693,25 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		const desc = property.name
 			? `Note property: ${property.name}. Rendered as ${getPropertyRenderModeLabel(property.render).toLowerCase()}.`
 			: `Rendered as ${getPropertyRenderModeLabel(property.render).toLowerCase()}.`;
+		const isExpanded = this.expandedProjectProperties.has(property.id);
 
 		new Setting(containerEl)
 			.setName(title)
 			.setDesc(desc)
 			.setHeading()
+			.addExtraButton((button) => {
+				button
+					.setIcon(isExpanded ? "chevron-down" : "chevron-right")
+					.setTooltip(isExpanded ? "Collapse property" : "Expand property")
+					.onClick(() => {
+						if (isExpanded) {
+							this.expandedProjectProperties.delete(property.id);
+						} else {
+							this.expandedProjectProperties.add(property.id);
+						}
+						this.display();
+					});
+			})
 			.addExtraButton((button) => {
 				button
 					.setIcon("arrow-up")
@@ -706,6 +738,10 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						await this.deleteProjectProperty(index);
 					});
 			});
+
+		if (!isExpanded) {
+			return;
+		}
 
 		new Setting(containerEl)
 			.setName("Label")
@@ -864,10 +900,12 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setButtonText("Add")
 					.setCta()
 					.onClick(async () => {
+						const property = createProjectPropertyDefinition(this.plugin.settings.projectProperties);
 						this.plugin.settings.projectProperties = [
 							...this.plugin.settings.projectProperties,
-							createProjectPropertyDefinition(this.plugin.settings.projectProperties),
+							property,
 						];
+						this.expandedProjectProperties.add(property.id);
 						await this.plugin.saveSettings();
 						this.display();
 					});
@@ -928,6 +966,11 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	}
 
 	private async deleteProjectProperty(index: number): Promise<void> {
+		const property = this.plugin.settings.projectProperties[index];
+		if (property) {
+			this.expandedProjectProperties.delete(property.id);
+		}
+
 		this.plugin.settings.projectProperties = this.plugin.settings.projectProperties.filter((_, propertyIndex) => propertyIndex !== index);
 		await this.plugin.saveSettings();
 		this.display();
@@ -946,7 +989,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		}
 
 		this.plugin.settings.statusOptions = [...this.plugin.settings.statusOptions, status];
-		this.plugin.settings.activeStatuses = [...this.plugin.settings.activeStatuses, status];
 		this.plugin.settings.statusColors[status] = FALLBACK_STATUS_COLOR;
 		this.plugin.settings.boardColumnOrder = [...this.plugin.settings.statusOptions];
 		await this.plugin.saveSettings();
@@ -974,7 +1016,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		const statusOptions = [...this.plugin.settings.statusOptions];
 		statusOptions[index] = nextStatus;
 		this.plugin.settings.statusOptions = statusOptions;
-		this.plugin.settings.activeStatuses = this.plugin.settings.activeStatuses.map((status) => status === oldStatus ? nextStatus : status);
 		this.plugin.settings.boardColumnOrder = this.plugin.settings.boardColumnOrder.map((status) => status === oldStatus ? nextStatus : status);
 		this.plugin.settings.collapsedBoardColumns = this.plugin.settings.collapsedBoardColumns.map((status) => status === oldStatus ? nextStatus : status);
 		this.plugin.settings.statusColors[nextStatus] = getStatusColor(this.plugin.settings, oldStatus);
@@ -1004,23 +1045,11 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 	private async deleteStatus(status: string): Promise<void> {
 		this.plugin.settings.statusOptions = this.plugin.settings.statusOptions.filter((candidate) => candidate !== status);
-		this.plugin.settings.activeStatuses = this.plugin.settings.activeStatuses.filter((candidate) => candidate !== status);
 		this.plugin.settings.boardColumnOrder = this.plugin.settings.boardColumnOrder.filter((candidate) => candidate !== status);
 		this.plugin.settings.collapsedBoardColumns = this.plugin.settings.collapsedBoardColumns.filter((candidate) => candidate !== status);
 		delete this.plugin.settings.statusColors[status];
 		await this.plugin.saveSettings();
 		this.display();
-	}
-
-	private setStatusCurrent(status: string, isCurrent: boolean): void {
-		if (isCurrent) {
-			if (!this.plugin.settings.activeStatuses.includes(status)) {
-				this.plugin.settings.activeStatuses = [...this.plugin.settings.activeStatuses, status];
-			}
-			return;
-		}
-
-		this.plugin.settings.activeStatuses = this.plugin.settings.activeStatuses.filter((candidate) => candidate !== status);
 	}
 
 	private addHeading(containerEl: HTMLElement, name: string): void {

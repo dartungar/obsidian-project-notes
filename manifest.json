@@ -1,9 +1,11 @@
 {
-	"id": "simple-project-views",
-	"name": "Simple Project Views",
+	"id": "project-notes",
+	"name": "Project Notes",
 	"version": "1.0.0",
 	"minAppVersion": "1.10.0",
-	"description": "Project-aware controls, side pane, and Bases views for Obsidian project notes.",
+	"description": "Tools for simple note-based project management.",
 	"author": "dartungar",
+	"authorUrl": "https://dartungar.com",
+	"fundingUrl": "https://www.paypal.com/paypalme/dartungar",	
 	"isDesktopOnly": false
 }

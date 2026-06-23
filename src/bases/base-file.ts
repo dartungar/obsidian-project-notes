@@ -5,9 +5,6 @@ export function buildProjectBaseContent(settings: SimpleProjectViewsSettings): s
 	const filters = buildGlobalFilters(settings);
 	const properties = buildProperties(settings);
 	const tableOrder = buildTableOrder(settings);
-	const currentFilters = settings.propertyNames.status.trim()
-		? settings.activeStatuses.map((status) => `${propertyRef(settings.propertyNames.status)} == ${expressionString(status)}`)
-		: [];
 
 	return [
 		"filters:",
@@ -16,12 +13,7 @@ export function buildProjectBaseContent(settings: SimpleProjectViewsSettings): s
 		...indent(properties),
 		"views:",
 		`  - type: ${PROJECT_LIST_BASES_VIEW_TYPE}`,
-		"    name: Current projects",
-		...(currentFilters.length > 0 ? [
-			"    filters:",
-			"      or:",
-			...currentFilters.map((filter) => `        - ${yamlQuote(filter)}`),
-		] : []),
+		"    name: Projects",
 		`  - type: ${PROJECT_TABLE_BASES_VIEW_TYPE}`,
 		"    name: Project table",
 		`  - type: ${PROJECT_BOARD_BASES_VIEW_TYPE}`,

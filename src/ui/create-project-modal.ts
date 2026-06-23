@@ -224,7 +224,6 @@ export class CreateProjectModal extends Modal {
 }
 
 function getDefaultProjectValues(plugin: SimpleProjectViewsPlugin): ProjectCreationValues {
-	const firstActiveStatus = plugin.settings.activeStatuses[0];
 	const firstStatus = plugin.settings.statusOptions[0];
 	const propertyValues: Record<string, ProjectPropertyInputValue> = {};
 
@@ -235,7 +234,7 @@ function getDefaultProjectValues(plugin: SimpleProjectViewsPlugin): ProjectCreat
 	return {
 		title: "",
 		icon: "",
-		status: firstActiveStatus ?? firstStatus ?? "",
+		status: firstStatus ?? "",
 		propertyValues,
 	};
 }

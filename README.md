@@ -10,7 +10,7 @@ The plugin keeps your Markdown notes as the source of truth. It reads and writes
 - Project note toolbar for project icon, status, and any configured project properties, with top, bottom, left, or right placement.
 - Arbitrary project properties with configurable note property names, value types, render modes, and optional label icons.
 - Create project command with configurable path and note template.
-- Current projects side pane.
+- Projects side pane.
 - Custom Bases layouts:
 	- Compact project list
 	- Editable project table that follows the Bases sort menu
@@ -19,7 +19,7 @@ The plugin keeps your Markdown notes as the source of truth. It reads and writes
 
 ## Default properties
 
-Status is special because it drives current-project filtering and board columns. Project icon is a built-in field that can be turned off. All other project properties are configurable in **Settings → Simple Project Views → Properties** and can be added, removed, renamed, retyped, and rendered as progress bars, stars, text fields, text areas, dates, or date/times. Each property can show its name or an icon in project views.
+Status is special because it drives project controls and board columns. Project icon is a built-in field that can be turned off. All other project properties are configurable in **Settings → Simple Project Views → Properties** and can be added, removed, renamed, retyped, and rendered as progress bars, stars, text fields, text areas, dates, or date/times. Each property can show its name or an icon in project views.
 
 ```yaml
 ---
@@ -44,7 +44,7 @@ The create project command uses a configurable path template and Markdown templa
 
 ## Commands
 
-- **Open current projects**
+- **Open projects**
 - **Create project**
 - **Create project base**
 - **Refresh project views**

@@ -19,7 +19,7 @@ export class ProjectSidebarView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Current projects";
+		return "Projects";
 	}
 
 	getIcon(): string {
@@ -41,7 +41,7 @@ export class ProjectSidebarView extends ItemView {
 
 		const headerEl = containerEl.createDiv({cls: "spv-sidebar-header"});
 		const titleEl = headerEl.createDiv({cls: "spv-sidebar-title"});
-		titleEl.createEl("h2", {text: "Current projects"});
+		titleEl.createEl("h2", {text: "Projects"});
 
 		const refreshButtonEl = headerEl.createEl("button", {
 			cls: "clickable-icon spv-sidebar-refresh",
@@ -50,12 +50,12 @@ export class ProjectSidebarView extends ItemView {
 		setIcon(refreshButtonEl, "refresh-cw");
 		refreshButtonEl.addEventListener("click", () => this.plugin.refreshProjectSurfaces());
 
-		const projects = this.plugin.projectIndex.getCurrentProjects();
-		titleEl.createSpan({text: `${projects.length} active`});
+		const projects = this.plugin.projectIndex.getProjects();
+		titleEl.createSpan({text: `${projects.length} ${projects.length === 1 ? "project" : "projects"}`});
 		if (projects.length === 0) {
 			containerEl.createDiv({
 				cls: "spv-empty-state",
-				text: "No current projects match your settings.",
+				text: "No projects match your settings.",
 			});
 			return;
 		}
