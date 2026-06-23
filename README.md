@@ -2,7 +2,7 @@
 
 Simple Project Views adds lightweight project controls and project-aware views for Obsidian notes.
 
-The plugin keeps your Markdown notes as the source of truth. It reads and writes note properties, detects project notes using configurable criteria, and exposes the same project metadata through a note toolbar, a side pane, and custom Bases layouts.
+The plugin keeps your Markdown notes as the source of truth. It reads and writes note properties, detects project notes using configurable criteria, and exposes the same project metadata through a note toolbar and custom Bases layouts.
 
 ## Features
 
@@ -10,7 +10,6 @@ The plugin keeps your Markdown notes as the source of truth. It reads and writes
 - Project note toolbar for project icon, status, and any configured project properties, with top, bottom, left, or right placement.
 - Arbitrary project properties with configurable note property names, value types, render modes, and optional label icons.
 - Create project command with configurable path and optional template file.
-- Projects side pane.
 - Custom Bases layouts:
 	- Compact project list
 	- Editable project table that follows the Bases sort menu
@@ -44,7 +43,6 @@ The create project command uses a configurable path template and optional Markdo
 
 ## Commands
 
-- **Open projects**
 - **Create project**
 - **Create project base**
 - **Refresh project views**

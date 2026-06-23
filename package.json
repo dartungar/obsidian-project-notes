@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-simple-project-views",
 	"version": "1.0.0",
-	"description": "Project-aware controls, side pane, and Bases views for Obsidian project notes.",
+	"description": "Project-aware controls and Bases views for Obsidian project notes.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {

@@ -5,7 +5,6 @@ import {
 	PROJECT_BOARD_BASES_VIEW_TYPE,
 	PROJECT_LIST_BASES_VIEW_TYPE,
 	PROJECT_TABLE_BASES_VIEW_TYPE,
-	PROJECTS_VIEW_TYPE,
 } from "./constants";
 import {ProjectIndex, repairProjectFrontmatter} from "./project-metadata";
 import {buildProjectContent, buildProjectPath} from "./project-template";
@@ -14,7 +13,6 @@ import {DEFAULT_PROJECT_CREATION_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings, 
 import type {SimpleProjectViewsSettings} from "./settings";
 import {CreateProjectModal} from "./ui/create-project-modal";
 import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
-import {ProjectSidebarView} from "./ui/project-sidebar-view";
 
 export default class SimpleProjectViewsPlugin extends Plugin {
 	settings: SimpleProjectViewsSettings;
@@ -28,15 +26,11 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.projectIndex = new ProjectIndex(this.app, () => this.settings);
 		this.projectToolbar = new ProjectNoteToolbar(this);
 
-		this.registerProjectSidebar();
 		this.registerProjectBasesViews();
 		this.registerCommands();
 		this.registerProjectRefreshEvents();
 
 		this.addSettingTab(new SimpleProjectViewsSettingTab(this.app, this));
-		this.addRibbonIcon("list-checks", "Open projects", () => {
-			void this.openProjectSidebar();
-		});
 
 		this.app.workspace.onLayoutReady(() => this.refreshProjectSurfaces());
 	}
@@ -57,7 +51,6 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 
 	refreshProjectSurfaces(): void {
 		this.projectToolbar.refreshAll();
-		this.refreshProjectSidebar();
 		this.refreshProjectBasesViews();
 	}
 
@@ -67,10 +60,6 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 
 	unregisterProjectBasesView(view: ProjectBasesView): void {
 		this.projectBasesViews.delete(view);
-	}
-
-	private registerProjectSidebar(): void {
-		this.registerView(PROJECTS_VIEW_TYPE, (leaf) => new ProjectSidebarView(leaf, this));
 	}
 
 	private registerProjectBasesViews(): void {
@@ -94,14 +83,6 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	}
 
 	private registerCommands(): void {
-		this.addCommand({
-			id: "open-projects",
-			name: "Open projects",
-			callback: () => {
-				void this.openProjectSidebar();
-			},
-		});
-
 		this.addCommand({
 			id: "create-project",
 			name: "Create project",
@@ -183,14 +164,6 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.registerEvent(this.app.vault.on("rename", () => this.refreshProjectSurfaces()));
 	}
 
-	private refreshProjectSidebar(): void {
-		for (const leaf of this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE)) {
-			if (leaf.view instanceof ProjectSidebarView) {
-				leaf.view.render();
-			}
-		}
-	}
-
 	private refreshProjectBasesViews(): void {
 		for (const view of this.projectBasesViews) {
 			view.render();
@@ -201,27 +174,6 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 
 		return view?.file ?? null;
-	}
-
-	private async openProjectSidebar(): Promise<void> {
-		const leaves = this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE);
-		const existingLeaf = leaves[0];
-		if (existingLeaf) {
-			await this.app.workspace.revealLeaf(existingLeaf);
-			return;
-		}
-
-		const leaf = this.app.workspace.getRightLeaf(false);
-		if (!leaf) {
-			new Notice("Could not open projects");
-			return;
-		}
-
-		await leaf.setViewState({
-			type: PROJECTS_VIEW_TYPE,
-			active: true,
-		});
-		await this.app.workspace.revealLeaf(leaf);
 	}
 
 	private async createProjectBase(): Promise<void> {
