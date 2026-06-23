@@ -6,10 +6,10 @@ The plugin keeps your Markdown notes as the source of truth. It reads and writes
 
 ## Features
 
-- Configurable project criteria, with `#project` as the default.
+- Configurable project matching by tag, note property, or folder path, with `#project` as the default.
 - Project note toolbar for project icon, status, and any configured project properties, with top, bottom, left, or right placement.
 - Arbitrary project properties with configurable note property names, value types, render modes, and optional label icons.
-- Create project command with configurable path and note template.
+- Create project command with configurable path and optional template file.
 - Projects side pane.
 - Custom Bases layouts:
 	- Compact project list
@@ -40,7 +40,7 @@ The default property set matches earlier versions, but it is only a starting poi
 
 ## Create project template
 
-The create project command uses a configurable path template and Markdown template. Useful tokens include `{{title}}`, `{{safe_title}}`, `{{slug}}`, `{{project_folder}}`, `{{project_properties}}`, `{{icon}}`, `{{icon_property}}`, `{{status}}`, `{{status_property}}`, `{{date}}`, and tokens derived from configured property IDs, labels, and note property names.
+The create project command uses a configurable path template and optional Markdown template file. Useful tokens include `{{title}}`, `{{safe_title}}`, `{{slug}}`, `{{project_folder}}`, `{{project_properties}}`, `{{icon}}`, `{{icon_property}}`, `{{status}}`, `{{status_property}}`, `{{date}}`, and tokens derived from configured property IDs, labels, and note property names.
 
 ## Commands
 

@@ -27,42 +27,34 @@ export function buildProjectBaseContent(settings: SimpleProjectViewsSettings): s
 }
 
 function buildGlobalFilters(settings: SimpleProjectViewsSettings): string[] {
-	const criteriaFilters: string[] = [];
-
-	if (settings.projectTag.trim()) {
-		criteriaFilters.push(`file.hasTag(${expressionString(settings.projectTag.replace(/^#/, ""))})`);
-	}
-
-	if (settings.projectPropertyName.trim()) {
-		if (settings.projectPropertyValue.trim()) {
-			criteriaFilters.push(`${propertyRef(settings.projectPropertyName)} == ${expressionString(settings.projectPropertyValue)}`);
-		} else {
-			criteriaFilters.push(propertyRef(settings.projectPropertyName));
-		}
-	}
-
-	if (settings.projectFolder.trim()) {
-		criteriaFilters.push(`file.inFolder(${expressionString(settings.projectFolder)})`);
-	}
-
-	if (criteriaFilters.length === 0) {
+	const criteriaFilter = buildProjectCriteriaFilter(settings);
+	if (!criteriaFilter) {
 		return ["and:", "  - 'file.ext == \"md\"'"];
-	}
-
-	if (settings.criteriaMode === "all" || criteriaFilters.length === 1) {
-		return [
-			"and:",
-			"  - 'file.ext == \"md\"'",
-			...criteriaFilters.map((filter) => `  - ${yamlQuote(filter)}`),
-		];
 	}
 
 	return [
 		"and:",
 		"  - 'file.ext == \"md\"'",
-		"  - or:",
-		...criteriaFilters.map((filter) => `    - ${yamlQuote(filter)}`),
+		`  - ${yamlQuote(criteriaFilter)}`,
 	];
+}
+
+function buildProjectCriteriaFilter(settings: SimpleProjectViewsSettings): string {
+	if (settings.projectMatchType === "tag" && settings.projectTag.trim()) {
+		return `file.hasTag(${expressionString(settings.projectTag.replace(/^#/, ""))})`;
+	}
+
+	if (settings.projectMatchType === "property" && settings.projectPropertyName.trim()) {
+		return settings.projectPropertyValue.trim()
+			? `${propertyRef(settings.projectPropertyName)} == ${expressionString(settings.projectPropertyValue)}`
+			: propertyRef(settings.projectPropertyName);
+	}
+
+	if (settings.projectMatchType === "folder" && settings.projectFolder.trim()) {
+		return `file.inFolder(${expressionString(settings.projectFolder)})`;
+	}
+
+	return "";
 }
 
 function buildProperties(settings: SimpleProjectViewsSettings): string[] {

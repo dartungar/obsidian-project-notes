@@ -55,29 +55,20 @@ export class ProjectIndex {
 
 	matchesProjectCriteria(file: TFile): boolean {
 		const settings = this.getSettings();
-		const matchers: Array<() => boolean> = [];
 
-		if (settings.projectTag.trim()) {
-			matchers.push(() => this.fileHasTag(file, settings.projectTag));
+		if (settings.projectMatchType === "tag") {
+			return settings.projectTag.trim() ? this.fileHasTag(file, settings.projectTag) : false;
 		}
 
-		if (settings.projectPropertyName.trim()) {
-			matchers.push(() => this.fileHasProperty(file, settings.projectPropertyName, settings.projectPropertyValue));
+		if (settings.projectMatchType === "property") {
+			return settings.projectPropertyName.trim()
+				? this.fileHasProperty(file, settings.projectPropertyName, settings.projectPropertyValue)
+				: false;
 		}
 
-		if (settings.projectFolder.trim()) {
-			matchers.push(() => file.path === settings.projectFolder || file.path.startsWith(`${settings.projectFolder}/`));
-		}
-
-		if (matchers.length === 0) {
-			return false;
-		}
-
-		if (settings.criteriaMode === "all") {
-			return matchers.every((matcher) => matcher());
-		}
-
-		return matchers.some((matcher) => matcher());
+		return settings.projectFolder.trim()
+			? file.path === settings.projectFolder || file.path.startsWith(`${settings.projectFolder}/`)
+			: false;
 	}
 
 	private fileHasTag(file: TFile, expectedTag: string): boolean {

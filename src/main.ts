@@ -10,7 +10,7 @@ import {
 import {ProjectIndex, repairProjectFrontmatter} from "./project-metadata";
 import {buildProjectContent, buildProjectPath} from "./project-template";
 import type {ProjectCreationValues} from "./project-template";
-import {DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
+import {DEFAULT_PROJECT_CREATION_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
 import type {SimpleProjectViewsSettings} from "./settings";
 import {CreateProjectModal} from "./ui/create-project-modal";
 import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
@@ -149,13 +149,30 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	async createProject(values: ProjectCreationValues): Promise<TFile> {
 		const configuredPath = buildProjectPath(this.settings, values);
 		const path = this.getAvailableMarkdownPath(normalizePath(configuredPath));
+		const template = await this.readProjectCreationTemplate();
 		await this.ensureParentFolder(path);
-		const file = await this.app.vault.create(path, buildProjectContent(this.settings, values));
+		const file = await this.app.vault.create(path, buildProjectContent(this.settings, values, template));
 		await this.app.workspace.getLeaf(false).openFile(file);
 		new Notice("Project created");
 		this.refreshProjectSurfaces();
 
 		return file;
+	}
+
+	private async readProjectCreationTemplate(): Promise<string> {
+		const configuredPath = this.settings.projectCreationTemplatePath.trim();
+		if (!configuredPath) {
+			return DEFAULT_PROJECT_CREATION_TEMPLATE;
+		}
+
+		const templatePath = normalizePath(configuredPath);
+		const file = this.app.vault.getAbstractFileByPath(templatePath);
+		if (!(file instanceof TFile)) {
+			new Notice("Project template file not found; using default template");
+			return DEFAULT_PROJECT_CREATION_TEMPLATE;
+		}
+
+		return this.app.vault.read(file);
 	}
 
 	private registerProjectRefreshEvents(): void {

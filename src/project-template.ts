@@ -19,8 +19,8 @@ export function buildProjectPath(settings: SimpleProjectViewsSettings, values: P
 	return path.endsWith(".md") ? path : `${path}.md`;
 }
 
-export function buildProjectContent(settings: SimpleProjectViewsSettings, values: ProjectCreationValues): string {
-	const content = renderTemplate(settings.projectCreationTemplate, settings, values, {
+export function buildProjectContent(settings: SimpleProjectViewsSettings, values: ProjectCreationValues, template: string): string {
+	const content = renderTemplate(template, settings, values, {
 		project_properties: buildProjectProperties(settings, values),
 	});
 
@@ -74,12 +74,12 @@ function buildProjectProperties(settings: SimpleProjectViewsSettings, values: Pr
 	const projectPropertyName = settings.projectPropertyName.trim();
 	const projectPropertyValue = settings.projectPropertyValue.trim() || "true";
 
-	if (projectTag) {
+	if (settings.projectMatchType === "tag" && projectTag) {
 		lines.push("tags:");
 		lines.push(`  - ${formatYamlScalar(projectTag)}`);
 	}
 
-	if (projectPropertyName) {
+	if (settings.projectMatchType === "property" && projectPropertyName) {
 		lines.push(`${formatYamlKey(projectPropertyName)}: ${formatYamlScalar(projectPropertyValue)}`);
 	}
 

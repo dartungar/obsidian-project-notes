@@ -1,4 +1,4 @@
-import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting} from "obsidian";
+import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting, SuggestModal, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "./main";
 import {
 	cloneProjectProperties,
@@ -18,7 +18,7 @@ import {
 import type {ProjectPropertyDefinition} from "./project-properties";
 import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 
-export type ProjectCriteriaMode = "any" | "all";
+export type ProjectMatchType = "tag" | "property" | "folder";
 export type ProjectToolbarPosition = "top" | "bottom" | "left" | "right";
 type SettingsTabId = "general" | "views" | "noteBar" | "statuses" | "properties";
 
@@ -39,7 +39,7 @@ export type ToggleableProjectPropertyKey = Exclude<ProjectPropertyKey, "status">
 export type ProjectPropertyToggles = Record<ToggleableProjectPropertyKey, boolean>;
 
 export interface SimpleProjectViewsSettings {
-	criteriaMode: ProjectCriteriaMode;
+	projectMatchType: ProjectMatchType;
 	projectTag: string;
 	projectPropertyName: string;
 	projectPropertyValue: string;
@@ -52,7 +52,7 @@ export interface SimpleProjectViewsSettings {
 	showProjectToolbar: boolean;
 	noteToolbarPosition: ProjectToolbarPosition;
 	projectCreationPathTemplate: string;
-	projectCreationTemplate: string;
+	projectCreationTemplatePath: string;
 	baseFilePath: string;
 	boardColumnWidth: number;
 	boardColumnOrder: string[];
@@ -76,7 +76,7 @@ export const DEFAULT_PROJECT_CREATION_TEMPLATE = [
 ].join("\n");
 
 export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
-	criteriaMode: "any",
+	projectMatchType: "tag",
 	projectTag: "project",
 	projectPropertyName: "",
 	projectPropertyValue: "",
@@ -113,7 +113,7 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
-	projectCreationTemplate: DEFAULT_PROJECT_CREATION_TEMPLATE,
+	projectCreationTemplatePath: "",
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
 	boardColumnOrder: [],
@@ -167,9 +167,14 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectProperties,
 		statusOptions,
 		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
+		projectMatchType: normalizeProjectMatchType(settings.projectMatchType),
+		projectTag: typeof settings.projectTag === "string" ? normalizeProjectTag(settings.projectTag) : DEFAULT_SETTINGS.projectTag,
+		projectPropertyName: typeof settings.projectPropertyName === "string" ? settings.projectPropertyName.trim() : DEFAULT_SETTINGS.projectPropertyName,
+		projectPropertyValue: typeof settings.projectPropertyValue === "string" ? settings.projectPropertyValue.trim() : DEFAULT_SETTINGS.projectPropertyValue,
+		projectFolder: normalizeProjectFolder(settings.projectFolder),
 		noteToolbarPosition: normalizeProjectToolbarPosition(settings.noteToolbarPosition),
 		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(settings.projectCreationPathTemplate),
-		projectCreationTemplate: typeof settings.projectCreationTemplate === "string" ? settings.projectCreationTemplate : DEFAULT_SETTINGS.projectCreationTemplate,
+		projectCreationTemplatePath: normalizeProjectTemplatePath(settings.projectCreationTemplatePath),
 		boardColumnWidth: normalizeBoardColumnWidth(settings.boardColumnWidth),
 		boardColumnOrder: settings.boardColumnOrder ?? DEFAULT_SETTINGS.boardColumnOrder,
 		boardCardOrder: normalizeBoardCardOrder(settings.boardCardOrder),
@@ -223,8 +228,20 @@ function migrateLegacyProjectProperties(
 		});
 }
 
+export function normalizeProjectMatchType(value: unknown): ProjectMatchType {
+	return value === "property" || value === "folder" || value === "tag" ? value : DEFAULT_SETTINGS.projectMatchType;
+}
+
 export function normalizeProjectToolbarPosition(value: unknown): ProjectToolbarPosition {
 	return value === "top" || value === "bottom" || value === "left" || value === "right" ? value : DEFAULT_SETTINGS.noteToolbarPosition;
+}
+
+function normalizeProjectTag(value: string): string {
+	return value.trim().replace(/^#/, "");
+}
+
+function normalizeProjectFolder(value: unknown): string {
+	return typeof value === "string" ? value.trim().replace(/^\/+|\/+$/g, "") : DEFAULT_SETTINGS.projectFolder;
 }
 
 function normalizeProjectCreationPathTemplate(value: unknown): string {
@@ -233,6 +250,10 @@ function normalizeProjectCreationPathTemplate(value: unknown): string {
 	}
 
 	return value.trim().replace(/^\/+/, "");
+}
+
+function normalizeProjectTemplatePath(value: unknown): string {
+	return typeof value === "string" ? value.trim().replace(/^\/+/, "") : DEFAULT_SETTINGS.projectCreationTemplatePath;
 }
 
 function normalizeStatusOptions(statusOptions: string[] | undefined): string[] {
@@ -329,70 +350,22 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.addHeading(containerEl, "Match criteria");
 
 		new Setting(containerEl)
-			.setName("Match mode")
-			.setDesc("Choose whether a note must match any configured criterion or all configured criteria.")
+			.setName("Project notes")
+			.setDesc("Choose how notes are recognized as projects.")
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption("any", "Any criterion")
-					.addOption("all", "All criteria")
-					.setValue(this.plugin.settings.criteriaMode)
+					.addOption("tag", "Match tag")
+					.addOption("property", "Match property")
+					.addOption("folder", "Match folder")
+					.setValue(this.plugin.settings.projectMatchType)
 					.onChange(async (value) => {
-						this.plugin.settings.criteriaMode = value as ProjectCriteriaMode;
+						this.plugin.settings.projectMatchType = normalizeProjectMatchType(value);
 						await this.plugin.saveSettings();
+						this.display();
 					});
 			});
 
-		new Setting(containerEl)
-			.setName("Project tag")
-			.setDesc("Notes with this tag are projects. Use the tag name without #.")
-			.addText((text) => {
-				text
-					.setPlaceholder(DEFAULT_SETTINGS.projectTag)
-					.setValue(this.plugin.settings.projectTag)
-					.onChange(async (value) => {
-						this.plugin.settings.projectTag = value.trim().replace(/^#/, "");
-						await this.plugin.saveSettings();
-					});
-			});
-
-		new Setting(containerEl)
-			.setName("Project property")
-			.setDesc("Optional property that marks a project note.")
-			.addText((text) => {
-				text
-					.setPlaceholder(EXAMPLE_PROJECT_PROPERTY_NAME)
-					.setValue(this.plugin.settings.projectPropertyName)
-					.onChange(async (value) => {
-						this.plugin.settings.projectPropertyName = value.trim();
-						await this.plugin.saveSettings();
-					});
-			});
-
-		new Setting(containerEl)
-			.setName("Project property value")
-			.setDesc("Leave empty to match any non-empty value for the project property.")
-			.addText((text) => {
-				text
-					.setPlaceholder(EXAMPLE_PROJECT_PROPERTY_VALUE)
-					.setValue(this.plugin.settings.projectPropertyValue)
-					.onChange(async (value) => {
-						this.plugin.settings.projectPropertyValue = value.trim();
-						await this.plugin.saveSettings();
-					});
-			});
-
-		new Setting(containerEl)
-			.setName("Project folder")
-			.setDesc("Optional folder prefix for project notes.")
-			.addText((text) => {
-				text
-					.setPlaceholder("Projects")
-					.setValue(this.plugin.settings.projectFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.projectFolder = value.trim().replace(/^\/+|\/+$/g, "");
-						await this.plugin.saveSettings();
-					});
-			});
+		this.addProjectMatchSetting(containerEl);
 
 		this.addHeading(containerEl, "Creation");
 
@@ -411,17 +384,83 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Project template")
-			.setDesc("Markdown template used by the create project command.")
-			.addTextArea((text) => {
-				text
-					.setPlaceholder(DEFAULT_PROJECT_CREATION_TEMPLATE)
-					.setValue(this.plugin.settings.projectCreationTemplate)
+			.setDesc("Markdown file used by the create project command.")
+			.addSearch((search) => {
+				search
+					.setPlaceholder("Templates/Project.md")
+					.setValue(this.plugin.settings.projectCreationTemplatePath)
 					.onChange(async (value) => {
-						this.plugin.settings.projectCreationTemplate = value;
+						this.plugin.settings.projectCreationTemplatePath = normalizeProjectTemplatePath(value);
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.rows = 10;
-				text.inputEl.addClass("spv-template-textarea");
+			})
+			.addExtraButton((button) => {
+				button
+					.setIcon("folder-open")
+					.setTooltip("Choose template")
+					.onClick(() => {
+						new MarkdownFileSuggestModal(this.app, this.plugin.settings.projectCreationTemplatePath, async (file) => {
+							this.plugin.settings.projectCreationTemplatePath = file.path;
+							await this.plugin.saveSettings();
+							this.display();
+						}).open();
+					});
+			});
+	}
+
+	private addProjectMatchSetting(containerEl: HTMLElement): void {
+		if (this.plugin.settings.projectMatchType === "tag") {
+			new Setting(containerEl)
+				.setName("Project tag")
+				.setDesc("Notes with this tag are projects. Use the tag name without #.")
+				.addText((text) => {
+					text
+						.setPlaceholder(DEFAULT_SETTINGS.projectTag)
+						.setValue(this.plugin.settings.projectTag)
+						.onChange(async (value) => {
+							this.plugin.settings.projectTag = normalizeProjectTag(value);
+							await this.plugin.saveSettings();
+						});
+				});
+			return;
+		}
+
+		if (this.plugin.settings.projectMatchType === "property") {
+			new Setting(containerEl)
+				.setName("Project property")
+				.setDesc("Leave value empty to match any non-empty property value.")
+				.addText((text) => {
+					text
+						.setPlaceholder(EXAMPLE_PROJECT_PROPERTY_NAME)
+						.setValue(this.plugin.settings.projectPropertyName)
+						.onChange(async (value) => {
+							this.plugin.settings.projectPropertyName = value.trim();
+							await this.plugin.saveSettings();
+						});
+				})
+				.addText((text) => {
+					text
+						.setPlaceholder(EXAMPLE_PROJECT_PROPERTY_VALUE)
+						.setValue(this.plugin.settings.projectPropertyValue)
+						.onChange(async (value) => {
+							this.plugin.settings.projectPropertyValue = value.trim();
+							await this.plugin.saveSettings();
+						});
+				});
+			return;
+		}
+
+		new Setting(containerEl)
+			.setName("Project folder")
+			.setDesc("Notes in this folder are projects.")
+			.addText((text) => {
+				text
+					.setPlaceholder("Projects")
+					.setValue(this.plugin.settings.projectFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.projectFolder = normalizeProjectFolder(value);
+						await this.plugin.saveSettings();
+					});
 			});
 	}
 
@@ -1099,6 +1138,45 @@ function confirmDelete(app: App, options: DeleteConfirmationOptions): Promise<bo
 	return new Promise((resolve) => {
 		new DeleteConfirmationModal(app, options, resolve).open();
 	});
+}
+
+class MarkdownFileSuggestModal extends SuggestModal<TFile> {
+	private readonly files: TFile[];
+
+	constructor(
+		app: App,
+		private readonly currentPath: string,
+		private readonly onChoose: (file: TFile) => Promise<void>,
+	) {
+		super(app);
+		this.files = app.vault.getMarkdownFiles();
+		this.setPlaceholder("Choose a template file");
+	}
+
+	getSuggestions(query: string): TFile[] {
+		const normalizedQuery = query.trim().toLowerCase();
+		if (!normalizedQuery) {
+			return this.files.slice(0, 50);
+		}
+
+		return this.files
+			.filter((file) => file.path.toLowerCase().includes(normalizedQuery))
+			.slice(0, 50);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		const suggestionEl = el.createDiv({cls: "spv-icon-suggestion"});
+		suggestionEl.createSpan({cls: "spv-icon-suggestion-name", text: file.path});
+
+		if (file.path === this.currentPath) {
+			const currentEl = suggestionEl.createSpan({cls: "spv-icon-suggestion-current", text: "Current"});
+			currentEl.setAttribute("aria-label", "Current template file");
+		}
+	}
+
+	onChooseSuggestion(file: TFile): void {
+		void this.onChoose(file);
+	}
 }
 
 class DeleteConfirmationModal extends Modal {

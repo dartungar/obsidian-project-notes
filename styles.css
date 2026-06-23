@@ -86,12 +86,6 @@ button.spv-settings-tab.is-active {
 	flex-wrap: wrap;
 }
 
-.spv-template-textarea {
-	font-family: var(--font-monospace);
-	min-height: 12rem;
-	width: 100%;
-}
-
 .spv-setting-value,
 .spv-empty-state,
 .spv-readonly-value,
