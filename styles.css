@@ -591,6 +591,38 @@ button.spv-link-button:focus-visible {
 	position: relative;
 }
 
+.spv-board-colorful .spv-board-column {
+	background: var(--background-secondary);
+	background: color-mix(in srgb, var(--spv-status-color) 10%, var(--background-secondary));
+	border-color: var(--background-modifier-border);
+	border-color: color-mix(in srgb, var(--spv-status-color) 40%, var(--background-modifier-border));
+}
+
+.spv-board-colorful .spv-board-column-header {
+	background: var(--background-secondary);
+	background: color-mix(in srgb, var(--spv-status-color) 16%, transparent);
+	border-radius: var(--radius-s);
+	margin: calc(var(--size-2-3) * -1) calc(var(--size-2-3) * -1) 0;
+	padding: var(--size-2-3);
+}
+
+.spv-board-colorful .spv-board-column-count {
+	background: var(--background-modifier-hover);
+	background: color-mix(in srgb, var(--spv-status-color) 18%, var(--background-modifier-hover));
+	border-radius: 999px;
+	color: var(--text-normal);
+	min-width: 1.75em;
+	padding: 1px var(--size-2-2);
+	text-align: center;
+}
+
+.spv-board-colorful .spv-board-card {
+	background: var(--background-primary);
+	background: color-mix(in srgb, var(--spv-status-color) 5%, var(--background-primary));
+	border-color: var(--background-modifier-border);
+	border-color: color-mix(in srgb, var(--spv-status-color) 34%, var(--background-modifier-border));
+}
+
 .spv-board-column-title {
 	align-items: center;
 	display: flex;
@@ -714,10 +746,15 @@ button.spv-link-button:focus-visible {
 	max-width: none;
 }
 
+.spv-bases-view-table {
+	overflow-x: auto;
+}
+
 .spv-project-table {
 	border-collapse: collapse;
 	font-size: var(--font-ui-small);
-	width: 100%;
+	min-width: 100%;
+	width: max-content;
 }
 
 .spv-project-table th,
@@ -731,7 +768,12 @@ button.spv-link-button:focus-visible {
 .spv-project-table th {
 	color: var(--text-muted);
 	font-weight: var(--font-semibold);
+	position: relative;
 	white-space: nowrap;
+}
+
+.spv-project-table-resizable-header {
+	padding-right: calc(var(--size-4-2) + var(--size-2-2));
 }
 
 .spv-project-table th:first-child,
@@ -754,6 +796,34 @@ button.spv-link-button:focus-visible {
 	align-items: center;
 	display: inline-flex;
 	gap: var(--size-2-1);
+}
+
+.spv-table-resize-handle {
+	bottom: 0;
+	cursor: col-resize;
+	position: absolute;
+	right: -4px;
+	top: 0;
+	touch-action: none;
+	user-select: none;
+	width: 8px;
+	z-index: 1;
+}
+
+.spv-table-resize-handle::after {
+	background: transparent;
+	bottom: var(--size-2-2);
+	content: "";
+	position: absolute;
+	right: 3px;
+	top: var(--size-2-2);
+	width: 1px;
+}
+
+.spv-table-resize-handle:hover::after,
+.spv-table-resize-handle:focus-visible::after,
+.spv-table-column-resizing .spv-table-resize-handle::after {
+	background: var(--interactive-accent);
 }
 
 .spv-project-table tbody tr:hover {

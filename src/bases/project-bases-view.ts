@@ -7,6 +7,13 @@ import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/p
 import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
 import {renderProjectBoard} from "./project-board";
+import {
+	MIN_TABLE_COLUMN_WIDTH,
+	normalizeTableColumnWidths,
+	resetTableColumnWidth,
+	setTableColumnWidth,
+} from "./table-column-widths";
+import type {TableColumnWidths} from "./table-column-widths";
 import {resolveProjectViewProperties} from "./view-properties";
 import type {ProjectViewColumn, ResolvedProjectViewProperties} from "./view-properties";
 
@@ -21,6 +28,7 @@ interface ProjectGroup {
 const TABLE_FIELD_LABELS: Partial<Record<ProjectControlField, string>> = {
 	status: "Status",
 };
+const TABLE_COLUMN_WIDTHS_CONFIG_KEY = "spvTableColumnWidths";
 
 export class ProjectBasesView extends BasesView {
 	readonly type: string;
@@ -124,13 +132,15 @@ export class ProjectBasesView extends BasesView {
 
 	private renderTable(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {
 		const columns = viewProperties.tableColumns;
+		const columnWidths = this.getTableColumnWidths(columns);
 
 		const tableEl = this.containerEl.createEl("table", {cls: "spv-project-table"});
+		const columnEls = this.renderTableColumnGroup(tableEl, columns, columnWidths);
 		const theadEl = tableEl.createEl("thead");
 		const headRowEl = theadEl.createEl("tr");
 
 		for (const column of columns) {
-			this.renderTableHeader(headRowEl, column);
+			this.renderTableHeader(headRowEl, column, columnEls.get(column.propertyId), columnWidths[column.propertyId]);
 		}
 
 		const tbodyEl = tableEl.createEl("tbody");
@@ -220,8 +230,37 @@ export class ProjectBasesView extends BasesView {
 		});
 	}
 
-	private renderTableHeader(rowEl: HTMLTableRowElement, column: ProjectViewColumn): void {
+	private renderTableColumnGroup(
+		tableEl: HTMLTableElement,
+		columns: ProjectViewColumn[],
+		widths: TableColumnWidths,
+	): Map<string, HTMLTableColElement> {
+		const columnEls = new Map<string, HTMLTableColElement>();
+		const colgroupEl = tableEl.createEl("colgroup");
+
+		for (const column of columns) {
+			const colEl = colgroupEl.createEl("col");
+			const width = widths[column.propertyId];
+			if (width !== undefined) {
+				this.applyTableColumnWidth(colEl, width);
+			}
+			columnEls.set(column.propertyId, colEl);
+		}
+
+		return columnEls;
+	}
+
+	private renderTableHeader(
+		rowEl: HTMLTableRowElement,
+		column: ProjectViewColumn,
+		colEl: HTMLTableColElement | undefined,
+		width: number | undefined,
+	): void {
 		const headerEl = rowEl.createEl("th");
+		headerEl.addClass("spv-project-table-resizable-header");
+		if (width !== undefined) {
+			this.applyTableColumnWidth(headerEl, width);
+		}
 		const sort = this.getColumnSort(column);
 		headerEl.setAttribute("aria-sort", sort ? (sort.direction === "ASC" ? "ascending" : "descending") : "none");
 		const labelEl = headerEl.createSpan({cls: "spv-table-sort-label"});
@@ -247,6 +286,8 @@ export class ProjectBasesView extends BasesView {
 			const iconEl = labelEl.createSpan({cls: "spv-table-sort-icon", attr: {"aria-hidden": "true"}});
 			setIcon(iconEl, sort.direction === "ASC" ? "arrow-up" : "arrow-down");
 		}
+
+		this.renderTableResizeHandle(headerEl, column, colEl);
 	}
 
 	private renderTableCell(rowEl: HTMLTableRowElement, project: ProjectInfo, column: ProjectViewColumn): void {
@@ -274,6 +315,123 @@ export class ProjectBasesView extends BasesView {
 
 	private getColumnSort(column: ProjectViewColumn): BasesSortConfig | null {
 		return this.config.getSort().find((sort) => sort.property === column.propertyId) ?? null;
+	}
+
+	private renderTableResizeHandle(
+		headerEl: HTMLTableCellElement,
+		column: ProjectViewColumn,
+		colEl: HTMLTableColElement | undefined,
+	): void {
+		const handleEl = headerEl.createSpan({
+			cls: "spv-table-resize-handle",
+			attr: {
+				"aria-label": `Resize ${column.label} column`,
+				"aria-orientation": "vertical",
+				role: "separator",
+				tabindex: "0",
+			},
+		});
+		handleEl.addEventListener("pointerdown", (event) => this.startTableColumnResize(event, headerEl, column, colEl));
+		handleEl.addEventListener("dblclick", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			this.resetTableColumnWidth(column);
+			headerEl.style.removeProperty("width");
+			colEl?.style.removeProperty("width");
+		});
+		handleEl.addEventListener("keydown", (event) => this.handleTableResizeKey(event, headerEl, column, colEl));
+	}
+
+	private startTableColumnResize(
+		event: PointerEvent,
+		headerEl: HTMLTableCellElement,
+		column: ProjectViewColumn,
+		colEl: HTMLTableColElement | undefined,
+	): void {
+		if (event.button !== 0) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		const startX = event.clientX;
+		const startWidth = this.getRenderedTableColumnWidth(headerEl, column);
+		let nextWidth = startWidth;
+		document.body.classList.add("spv-table-column-resizing");
+
+		const handlePointerMove = (moveEvent: PointerEvent) => {
+			moveEvent.preventDefault();
+			nextWidth = Math.max(MIN_TABLE_COLUMN_WIDTH, startWidth + moveEvent.clientX - startX);
+			this.applyTableColumnWidth(headerEl, nextWidth);
+			this.applyTableColumnWidth(colEl, nextWidth);
+		};
+		const finishResize = () => {
+			window.removeEventListener("pointermove", handlePointerMove);
+			window.removeEventListener("pointerup", finishResize);
+			window.removeEventListener("pointercancel", finishResize);
+			document.body.classList.remove("spv-table-column-resizing");
+			this.saveTableColumnWidth(column, nextWidth);
+		};
+
+		window.addEventListener("pointermove", handlePointerMove);
+		window.addEventListener("pointerup", finishResize);
+		window.addEventListener("pointercancel", finishResize);
+	}
+
+	private handleTableResizeKey(
+		event: KeyboardEvent,
+		headerEl: HTMLTableCellElement,
+		column: ProjectViewColumn,
+		colEl: HTMLTableColElement | undefined,
+	): void {
+		if (event.key === "Enter" || event.key === "Backspace" || event.key === "Delete") {
+			event.preventDefault();
+			this.resetTableColumnWidth(column);
+			headerEl.style.removeProperty("width");
+			colEl?.style.removeProperty("width");
+			return;
+		}
+
+		const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+		if (direction === 0) {
+			return;
+		}
+
+		event.preventDefault();
+		const nextWidth = this.getRenderedTableColumnWidth(headerEl, column) + direction * 24;
+		this.applyTableColumnWidth(headerEl, nextWidth);
+		this.applyTableColumnWidth(colEl, nextWidth);
+		this.saveTableColumnWidth(column, nextWidth);
+	}
+
+	private getTableColumnWidths(columns: ProjectViewColumn[]): TableColumnWidths {
+		return normalizeTableColumnWidths(
+			this.config.get(TABLE_COLUMN_WIDTHS_CONFIG_KEY),
+			columns.map((column) => column.propertyId),
+		);
+	}
+
+	private saveTableColumnWidth(column: ProjectViewColumn, width: number): void {
+		const columns = this.getViewProperties().tableColumns;
+		const widths = this.getTableColumnWidths(columns);
+		const nextWidths = setTableColumnWidth(widths, column.propertyId, width);
+		this.config.set(TABLE_COLUMN_WIDTHS_CONFIG_KEY, nextWidths);
+	}
+
+	private resetTableColumnWidth(column: ProjectViewColumn): void {
+		const columns = this.getViewProperties().tableColumns;
+		const widths = this.getTableColumnWidths(columns);
+		const nextWidths = resetTableColumnWidth(widths, column.propertyId);
+		this.config.set(TABLE_COLUMN_WIDTHS_CONFIG_KEY, Object.keys(nextWidths).length === 0 ? null : nextWidths);
+	}
+
+	private getRenderedTableColumnWidth(headerEl: HTMLTableCellElement, column: ProjectViewColumn): number {
+		const widths = this.getTableColumnWidths(this.getViewProperties().tableColumns);
+		return widths[column.propertyId] ?? headerEl.getBoundingClientRect().width;
+	}
+
+	private applyTableColumnWidth(element: HTMLElement | undefined, width: number): void {
+		element?.style.setProperty("width", `${Math.max(MIN_TABLE_COLUMN_WIDTH, Math.round(width))}px`);
 	}
 
 	private renderStatusBadge(containerEl: HTMLElement, status: string): void {

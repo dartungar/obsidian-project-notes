@@ -1,5 +1,6 @@
 import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting, SuggestModal, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "./main";
+import {normalizeColorfulBoard} from "./bases/board-appearance";
 import {
 	cloneProjectProperties,
 	createProjectPropertyDefinition,
@@ -55,6 +56,7 @@ export interface SimpleProjectViewsSettings {
 	projectCreationTemplatePath: string;
 	baseFilePath: string;
 	boardColumnWidth: number;
+	colorfulBoard: boolean;
 	boardColumnOrder: string[];
 	boardCardOrder: string[];
 	collapsedBoardColumns: string[];
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	projectCreationTemplatePath: "",
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
+	colorfulBoard: false,
 	boardColumnOrder: [],
 	boardCardOrder: [],
 	collapsedBoardColumns: [],
@@ -176,6 +179,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(settings.projectCreationPathTemplate),
 		projectCreationTemplatePath: normalizeProjectTemplatePath(settings.projectCreationTemplatePath),
 		boardColumnWidth: normalizeBoardColumnWidth(settings.boardColumnWidth),
+		colorfulBoard: normalizeColorfulBoard(settings.colorfulBoard),
 		boardColumnOrder: settings.boardColumnOrder ?? DEFAULT_SETTINGS.boardColumnOrder,
 		boardCardOrder: normalizeBoardCardOrder(settings.boardCardOrder),
 		collapsedBoardColumns: settings.collapsedBoardColumns ?? DEFAULT_SETTINGS.collapsedBoardColumns,
@@ -514,6 +518,18 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			})
 			.then((setting) => {
 				setting.controlEl.prepend(widthValueEl);
+			});
+
+		new Setting(containerEl)
+			.setName("Colorful board")
+			.setDesc("Tint board columns and cards using status colors.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.colorfulBoard)
+					.onChange(async (value) => {
+						this.plugin.settings.colorfulBoard = value;
+						await this.plugin.saveSettings();
+					});
 			});
 	}
 

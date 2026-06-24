@@ -1,9 +1,16 @@
 /* eslint-disable import/no-nodejs-modules */
 import test from "node:test";
 import assert from "node:assert/strict";
+import {getBoardClassName, normalizeColorfulBoard} from "./board-appearance";
 import {buildProjectBaseContent} from "./base-file";
 import type {ProjectPropertyDefinition} from "../project-properties";
 import type {SimpleProjectViewsSettings} from "../settings";
+import {
+	MIN_TABLE_COLUMN_WIDTH,
+	normalizeTableColumnWidths,
+	resetTableColumnWidth,
+	setTableColumnWidth,
+} from "./table-column-widths";
 import {resolveProjectViewProperties} from "./view-properties";
 
 const projectProperties: ProjectPropertyDefinition[] = [
@@ -67,6 +74,7 @@ const settings: SimpleProjectViewsSettings = {
 	projectCreationTemplatePath: "",
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
+	colorfulBoard: false,
 	boardColumnOrder: [],
 	boardCardOrder: [],
 	collapsedBoardColumns: [],
@@ -107,6 +115,40 @@ void test("generated Bases views only show file name by default", () => {
 	assert.equal(countOccurrences(content, "      - icon"), 0);
 	assert.equal(countOccurrences(content, "      - progress"), 0);
 	assert.equal(countOccurrences(content, "      - next_action"), 0);
+});
+
+void test("normalizes table column widths for the current columns", () => {
+	const widths = normalizeTableColumnWidths({
+		"file.name": 240.4,
+		"note.status": 12,
+		"note.stale": 300,
+	}, ["file.name", "note.status"]);
+
+	assert.deepEqual(widths, {
+		"file.name": 240,
+		"note.status": MIN_TABLE_COLUMN_WIDTH,
+	});
+});
+
+void test("sets and resets table column widths by property id", () => {
+	const widths = setTableColumnWidth({"file.name": 240}, "note.status", 320.8);
+	const resetWidths = resetTableColumnWidth(widths, "file.name");
+
+	assert.deepEqual(widths, {
+		"file.name": 240,
+		"note.status": 321,
+	});
+	assert.deepEqual(resetWidths, {
+		"note.status": 321,
+	});
+});
+
+void test("normalizes colorful board setting and class name", () => {
+	assert.equal(normalizeColorfulBoard(undefined), false);
+	assert.equal(normalizeColorfulBoard(false), false);
+	assert.equal(normalizeColorfulBoard(true), true);
+	assert.equal(getBoardClassName(false), "spv-board");
+	assert.equal(getBoardClassName(true), "spv-board spv-board-colorful");
 });
 
 function countOccurrences(value: string, needle: string): number {
