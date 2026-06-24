@@ -7,7 +7,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"test": "esbuild src/bases/view-properties.test.ts --bundle --platform=node --format=esm --outfile=/tmp/obsidian-simple-project-views-tests/view-properties.test.mjs && node /tmp/obsidian-simple-project-views-tests/view-properties.test.mjs",
+		"test": "esbuild src/test-runner.ts --bundle --platform=node --format=esm --outfile=/tmp/obsidian-simple-project-views-tests/test-runner.mjs && node /tmp/obsidian-simple-project-views-tests/test-runner.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},

@@ -52,7 +52,7 @@ function renderBoardColumn(
 	isCollapsed: boolean,
 	options: ProjectBoardRenderOptions,
 ): void {
-	const columnProjects = projects.filter((project) => project.status === status);
+	const columnProjects = projects.filter((project) => getBoardStatus(project.status, plugin.settings.statusOptions) === status);
 	const title = status || "No status";
 	const columnEl = boardEl.createDiv({cls: "spv-board-column"});
 	columnEl.classList.toggle("spv-board-column-collapsed", isCollapsed);
@@ -116,7 +116,7 @@ function renderBoardColumn(
 
 	const bodyEl = columnEl.createDiv({cls: "spv-board-column-body"});
 	for (const project of columnProjects) {
-		renderBoardCard(bodyEl, plugin, projects, project, options);
+		renderBoardCard(bodyEl, plugin, projects, project, status, options);
 	}
 	bodyEl.createDiv({
 		cls: "spv-board-card-placeholder",
@@ -129,6 +129,7 @@ function renderBoardCard(
 	plugin: SimpleProjectViewsPlugin,
 	projects: ProjectInfo[],
 	project: ProjectInfo,
+	columnStatus: string,
 	options: ProjectBoardRenderOptions,
 ): void {
 	const isEditing = editingBoardCards.has(project.file.path);
@@ -176,7 +177,7 @@ function renderBoardCard(
 		}
 	});
 	cardEl.addEventListener("drop", (event) => {
-		void handleCardDrop(event, cardEl, plugin, projects, project);
+		void handleCardDrop(event, cardEl, plugin, projects, project, columnStatus);
 	});
 
 	const headerEl = cardEl.createDiv({cls: "spv-project-summary-header"});
@@ -335,6 +336,7 @@ async function handleCardDrop(
 	plugin: SimpleProjectViewsPlugin,
 	projects: ProjectInfo[],
 	targetProject: ProjectInfo,
+	targetStatus: string,
 ): Promise<void> {
 	if (!event.dataTransfer || !hasDragType(event, PROJECT_DRAG_TYPE)) {
 		return;
@@ -353,7 +355,7 @@ async function handleCardDrop(
 	await moveProjectOnBoard(plugin, projects, projectPath, {
 		path: targetProject.file.path,
 		placement: getCardReorderPlacement(event, cardEl),
-		status: targetProject.status,
+		status: targetStatus,
 	});
 }
 
@@ -372,8 +374,8 @@ async function moveProjectOnBoard(
 		return;
 	}
 
-	const nextOrder = reorderProjectPaths(projects, plugin.settings.boardCardOrder, projectPath, target);
-	const statusChanged = project.status !== target.status;
+	const nextOrder = reorderProjectPaths(projects, plugin.settings.boardCardOrder, projectPath, target, plugin.settings.statusOptions);
+	const statusChanged = getBoardStatus(project.status, plugin.settings.statusOptions) !== target.status;
 	const orderChanged = !arraysEqual(plugin.settings.boardCardOrder, nextOrder);
 
 	if (!statusChanged && !orderChanged) {
@@ -431,11 +433,15 @@ async function setColumnCollapsed(plugin: SimpleProjectViewsPlugin, status: stri
 }
 
 function getBoardStatuses(statusOptions: string[], projects: ProjectInfo[], savedOrder: string[]): string[] {
-	const defaultStatuses = unique([...statusOptions, ...projects.map((project) => project.status)]);
+	const defaultStatuses = unique([...statusOptions, ...projects.map((project) => getBoardStatus(project.status, statusOptions))]);
 	const savedStatuses = savedOrder.filter((status) => defaultStatuses.includes(status));
 	const unsavedStatuses = defaultStatuses.filter((status) => !savedStatuses.includes(status));
 
 	return [...savedStatuses, ...unsavedStatuses];
+}
+
+function getBoardStatus(status: string, statusOptions: string[]): string {
+	return status && statusOptions.includes(status) ? status : "";
 }
 
 function getOrderedBoardProjects(projects: ProjectInfo[], savedOrder: string[]): ProjectInfo[] {
@@ -466,6 +472,7 @@ function reorderProjectPaths(
 	savedOrder: string[],
 	sourcePath: string,
 	target: ProjectDropTarget,
+	statusOptions: string[],
 ): string[] {
 	const orderedPaths = getOrderedBoardProjects(projects, savedOrder).map((project) => project.file.path);
 	if (!orderedPaths.includes(sourcePath)) {
@@ -483,7 +490,7 @@ function reorderProjectPaths(
 		return nextPaths;
 	}
 
-	const statusesByPath = new Map(projects.map((project) => [project.file.path, project.status]));
+	const statusesByPath = new Map(projects.map((project) => [project.file.path, getBoardStatus(project.status, statusOptions)]));
 	let lastTargetIndex = -1;
 	for (let index = 0; index < nextPaths.length; index += 1) {
 		const path = nextPaths[index];

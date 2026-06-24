@@ -3,6 +3,7 @@ import type SimpleProjectViewsPlugin from "./main";
 import {normalizeBoardCardLayout, normalizeColorfulBoard} from "./bases/board-appearance";
 import type {BoardCardLayout} from "./bases/board-appearance";
 import {normalizeShowTableColumnDividers} from "./bases/table-appearance";
+import {updateProjectProperty} from "./project-metadata";
 import {
 	cloneProjectProperties,
 	createProjectPropertyDefinition,
@@ -155,14 +156,8 @@ export function formatListSetting(value: string[]): string {
 }
 
 export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> = {}): SimpleProjectViewsSettings {
-	const propertyNames = {
-		...DEFAULT_SETTINGS.propertyNames,
-		...(settings.propertyNames ?? {}),
-	};
-	const enabledProperties = {
-		...DEFAULT_SETTINGS.enabledProperties,
-		...(settings.enabledProperties ?? {}),
-	};
+	const propertyNames = normalizeProjectPropertyNames(settings.propertyNames);
+	const enabledProperties = normalizeProjectPropertyToggles(settings.enabledProperties);
 	const projectProperties = Array.isArray(settings.projectProperties)
 		? normalizeProjectPropertyDefinitions(settings.projectProperties)
 		: migrateLegacyProjectProperties(propertyNames, enabledProperties);
@@ -188,9 +183,9 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		colorfulBoard: normalizeColorfulBoard(settings.colorfulBoard),
 		boardCardLayout: normalizeBoardCardLayout(settings.boardCardLayout),
 		showTableColumnDividers: normalizeShowTableColumnDividers(settings.showTableColumnDividers),
-		boardColumnOrder: settings.boardColumnOrder ?? DEFAULT_SETTINGS.boardColumnOrder,
-		boardCardOrder: normalizeBoardCardOrder(settings.boardCardOrder),
-		collapsedBoardColumns: settings.collapsedBoardColumns ?? DEFAULT_SETTINGS.collapsedBoardColumns,
+		boardColumnOrder: normalizeStringList(settings.boardColumnOrder),
+		boardCardOrder: normalizeStringList(settings.boardCardOrder),
+		collapsedBoardColumns: normalizeStringList(settings.collapsedBoardColumns),
 	};
 }
 
@@ -201,21 +196,6 @@ export function normalizeBoardColumnWidth(value: unknown): number {
 	}
 
 	return Math.max(MIN_BOARD_COLUMN_WIDTH, Math.min(MAX_BOARD_COLUMN_WIDTH, numericValue));
-}
-
-function normalizeBoardCardOrder(value: unknown): string[] {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-
-	return unique(value
-		.filter((path): path is string => typeof path === "string")
-		.map((path) => path.trim())
-		.filter((path) => path.length > 0));
-}
-
-export function isProjectPropertyEnabled(settings: SimpleProjectViewsSettings, property: ProjectPropertyKey): boolean {
-	return property === "status" || settings.enabledProperties[property];
 }
 
 export function getStatusColor(settings: SimpleProjectViewsSettings, status: string): string {
@@ -268,30 +248,80 @@ function normalizeProjectTemplatePath(value: unknown): string {
 	return typeof value === "string" ? value.trim().replace(/^\/+/, "") : DEFAULT_SETTINGS.projectCreationTemplatePath;
 }
 
-function normalizeStatusOptions(statusOptions: string[] | undefined): string[] {
+function normalizeStatusOptions(statusOptions: unknown): string[] {
 	const normalizedOptions = unique((Array.isArray(statusOptions) ? statusOptions : DEFAULT_SETTINGS.statusOptions)
+		.filter((status): status is string => typeof status === "string")
 		.map((status) => status.trim())
 		.filter((status) => status.length > 0));
 
 	return normalizedOptions;
 }
 
-function normalizeStatusColors(statusColors: Record<string, string> | undefined, statusOptions: string[]): Record<string, string> {
+function normalizeStatusColors(statusColors: unknown, statusOptions: string[]): Record<string, string> {
+	const colorRecord = isRecord(statusColors) ? statusColors : {};
 	const normalizedColors: Record<string, string> = {};
 
 	for (const status of statusOptions) {
-		normalizedColors[status] = normalizeStatusColor(statusColors?.[status] ?? DEFAULT_SETTINGS.statusColors[status]);
+		normalizedColors[status] = normalizeStatusColor(readString(colorRecord[status]) || DEFAULT_SETTINGS.statusColors[status]);
 	}
 
 	return normalizedColors;
 }
 
-function normalizeStatusColor(value: string | undefined): string {
-	if (value && /^#[0-9a-f]{6}$/i.test(value)) {
+function normalizeStatusColor(value: unknown): string {
+	if (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)) {
 		return value;
 	}
 
 	return FALLBACK_STATUS_COLOR;
+}
+
+function normalizeProjectPropertyNames(value: unknown): ProjectPropertyNames {
+	const propertyNames = isRecord(value) ? value : {};
+
+	return {
+		icon: readString(propertyNames.icon) ?? DEFAULT_SETTINGS.propertyNames.icon,
+		status: readString(propertyNames.status) ?? DEFAULT_SETTINGS.propertyNames.status,
+		progress: readString(propertyNames.progress) ?? DEFAULT_SETTINGS.propertyNames.progress,
+		due: readString(propertyNames.due) ?? DEFAULT_SETTINGS.propertyNames.due,
+		delegatedTo: readString(propertyNames.delegatedTo) ?? DEFAULT_SETTINGS.propertyNames.delegatedTo,
+		followUp: readString(propertyNames.followUp) ?? DEFAULT_SETTINGS.propertyNames.followUp,
+		nextAction: readString(propertyNames.nextAction) ?? DEFAULT_SETTINGS.propertyNames.nextAction,
+		blockedReason: readString(propertyNames.blockedReason) ?? DEFAULT_SETTINGS.propertyNames.blockedReason,
+	};
+}
+
+function normalizeProjectPropertyToggles(value: unknown): ProjectPropertyToggles {
+	const toggles = isRecord(value) ? value : {};
+
+	return {
+		icon: readBoolean(toggles.icon, DEFAULT_SETTINGS.enabledProperties.icon),
+		progress: readBoolean(toggles.progress, DEFAULT_SETTINGS.enabledProperties.progress),
+		due: readBoolean(toggles.due, DEFAULT_SETTINGS.enabledProperties.due),
+		delegatedTo: readBoolean(toggles.delegatedTo, DEFAULT_SETTINGS.enabledProperties.delegatedTo),
+		followUp: readBoolean(toggles.followUp, DEFAULT_SETTINGS.enabledProperties.followUp),
+		nextAction: readBoolean(toggles.nextAction, DEFAULT_SETTINGS.enabledProperties.nextAction),
+		blockedReason: readBoolean(toggles.blockedReason, DEFAULT_SETTINGS.enabledProperties.blockedReason),
+	};
+}
+
+function normalizeStringList(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	return unique(value
+		.filter((item): item is string => typeof item === "string")
+		.map((item) => item.trim())
+		.filter((item) => item.length > 0));
+}
+
+function readString(value: unknown): string | null {
+	return typeof value === "string" ? value.trim() : null;
+}
+
+function readBoolean(value: unknown, fallback: boolean): boolean {
+	return typeof value === "boolean" ? value : fallback;
 }
 
 function unique(values: string[]): string[] {
@@ -306,6 +336,10 @@ function unique(values: string[]): string[] {
 	}
 
 	return result;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export class SimpleProjectViewsSettingTab extends PluginSettingTab {
@@ -1123,6 +1157,8 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			return;
 		}
 
+		const projectsToRename = this.plugin.projectIndex.getProjects()
+			.filter((project) => project.status === oldStatus);
 		const statusOptions = [...this.plugin.settings.statusOptions];
 		statusOptions[index] = nextStatus;
 		this.plugin.settings.statusOptions = statusOptions;
@@ -1132,6 +1168,15 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		delete this.plugin.settings.statusColors[oldStatus];
 
 		await this.plugin.saveSettings();
+		try {
+			for (const project of projectsToRename) {
+				await updateProjectProperty(this.app, project.file, this.plugin.settings.propertyNames.status, nextStatus);
+			}
+		} catch (error) {
+			console.error("Simple project views: could not update renamed project statuses", error);
+			new Notice("Could not update all project statuses");
+		}
+		this.plugin.refreshProjectSurfaces();
 		this.display();
 	}
 

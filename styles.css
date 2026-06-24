@@ -561,21 +561,6 @@ button.spv-link-button:focus-visible {
 	white-space: nowrap;
 }
 
-.spv-project-warnings {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2-1);
-	margin-top: var(--size-2-3);
-}
-
-.spv-project-warnings span {
-	background: var(--background-modifier-hover);
-	border-radius: var(--radius-s);
-	color: var(--text-warning);
-	font-size: var(--font-ui-smaller);
-	padding: var(--size-2-1) var(--size-2-2);
-}
-
 .spv-board {
 	--spv-board-column-width: 280px;
 	--spv-board-gap: var(--size-4-2);

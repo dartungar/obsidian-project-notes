@@ -105,7 +105,7 @@ export function renderProjectControls(
 			continue;
 		}
 
-		const inputEl = createPropertyField(controlsEl, app, property, options.labels?.[field], async (value) => {
+		const inputEl = createPropertyField(controlsEl, property, options.labels?.[field], async (value) => {
 			await updateProjectProperty(app, project.file, definition.name, normalizePropertyInputValue(definition, value));
 			options.afterUpdate?.();
 		});
@@ -296,7 +296,6 @@ function addPropertySummaryLabelClass(
 
 function createPropertyField(
 	containerEl: HTMLElement,
-	app: App,
 	property: ProjectPropertyValue,
 	label: string | undefined,
 	onChange: (value: ProjectPropertyInputValue) => Promise<void>,
