@@ -14,6 +14,7 @@ import {
 	setTableColumnWidth,
 } from "./table-column-widths";
 import type {TableColumnWidths} from "./table-column-widths";
+import {getProjectTableClassName} from "./table-appearance";
 import {resolveProjectViewProperties} from "./view-properties";
 import type {ProjectViewColumn, ResolvedProjectViewProperties} from "./view-properties";
 
@@ -134,7 +135,9 @@ export class ProjectBasesView extends BasesView {
 		const columns = viewProperties.tableColumns;
 		const columnWidths = this.getTableColumnWidths(columns);
 
-		const tableEl = this.containerEl.createEl("table", {cls: "spv-project-table"});
+		const tableEl = this.containerEl.createEl("table", {
+			cls: getProjectTableClassName(this.plugin.settings.showTableColumnDividers),
+		});
 		const columnEls = this.renderTableColumnGroup(tableEl, columns, columnWidths);
 		const theadEl = tableEl.createEl("thead");
 		const headRowEl = theadEl.createEl("tr");
@@ -331,7 +334,7 @@ export class ProjectBasesView extends BasesView {
 				tabindex: "0",
 			},
 		});
-		handleEl.addEventListener("pointerdown", (event) => this.startTableColumnResize(event, headerEl, column, colEl));
+		handleEl.addEventListener("pointerdown", (event) => this.startTableColumnResize(event, handleEl, headerEl, column, colEl));
 		handleEl.addEventListener("dblclick", (event) => {
 			event.preventDefault();
 			event.stopPropagation();
@@ -344,6 +347,7 @@ export class ProjectBasesView extends BasesView {
 
 	private startTableColumnResize(
 		event: PointerEvent,
+		handleEl: HTMLElement,
 		headerEl: HTMLTableCellElement,
 		column: ProjectViewColumn,
 		colEl: HTMLTableColElement | undefined,
@@ -356,26 +360,53 @@ export class ProjectBasesView extends BasesView {
 		event.stopPropagation();
 		const startX = event.clientX;
 		const startWidth = this.getRenderedTableColumnWidth(headerEl, column);
+		const ownerDocument = headerEl.ownerDocument;
+		const pointerId = event.pointerId;
+		let isResizing = true;
 		let nextWidth = startWidth;
-		document.body.classList.add("spv-table-column-resizing");
+		ownerDocument.body.classList.add("spv-table-column-resizing");
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
+			if (!isResizing || moveEvent.pointerId !== pointerId) {
+				return;
+			}
+
 			moveEvent.preventDefault();
+			moveEvent.stopPropagation();
 			nextWidth = Math.max(MIN_TABLE_COLUMN_WIDTH, startWidth + moveEvent.clientX - startX);
 			this.applyTableColumnWidth(headerEl, nextWidth);
 			this.applyTableColumnWidth(colEl, nextWidth);
 		};
-		const finishResize = () => {
-			window.removeEventListener("pointermove", handlePointerMove);
-			window.removeEventListener("pointerup", finishResize);
-			window.removeEventListener("pointercancel", finishResize);
-			document.body.classList.remove("spv-table-column-resizing");
+		const finishResize = (finishEvent?: PointerEvent) => {
+			if (!isResizing || (finishEvent && finishEvent.pointerId !== pointerId)) {
+				return;
+			}
+
+			isResizing = false;
+			ownerDocument.removeEventListener("pointermove", handlePointerMove, true);
+			ownerDocument.removeEventListener("pointerup", finishResize, true);
+			ownerDocument.removeEventListener("pointercancel", finishResize, true);
+			handleEl.removeEventListener("lostpointercapture", finishResize);
+			try {
+				if (handleEl.hasPointerCapture(pointerId)) {
+					handleEl.releasePointerCapture(pointerId);
+				}
+			} catch {
+				// The browser may already have released capture after pointerup/cancel.
+			}
+			ownerDocument.body.classList.remove("spv-table-column-resizing");
 			this.saveTableColumnWidth(column, nextWidth);
 		};
 
-		window.addEventListener("pointermove", handlePointerMove);
-		window.addEventListener("pointerup", finishResize);
-		window.addEventListener("pointercancel", finishResize);
+		try {
+			handleEl.setPointerCapture(pointerId);
+		} catch {
+			// Pointer capture is best-effort; document listeners still cover the drag.
+		}
+		ownerDocument.addEventListener("pointermove", handlePointerMove, true);
+		ownerDocument.addEventListener("pointerup", finishResize, true);
+		ownerDocument.addEventListener("pointercancel", finishResize, true);
+		handleEl.addEventListener("lostpointercapture", finishResize);
 	}
 
 	private handleTableResizeKey(

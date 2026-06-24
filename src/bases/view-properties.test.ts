@@ -1,10 +1,11 @@
 /* eslint-disable import/no-nodejs-modules */
 import test from "node:test";
 import assert from "node:assert/strict";
-import {getBoardClassName, normalizeColorfulBoard} from "./board-appearance";
+import {getBoardClassName, normalizeBoardCardLayout, normalizeColorfulBoard} from "./board-appearance";
 import {buildProjectBaseContent} from "./base-file";
 import type {ProjectPropertyDefinition} from "../project-properties";
 import type {SimpleProjectViewsSettings} from "../settings";
+import {getProjectTableClassName, normalizeShowTableColumnDividers} from "./table-appearance";
 import {
 	MIN_TABLE_COLUMN_WIDTH,
 	normalizeTableColumnWidths,
@@ -75,6 +76,8 @@ const settings: SimpleProjectViewsSettings = {
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
 	colorfulBoard: false,
+	boardCardLayout: "default",
+	showTableColumnDividers: true,
 	boardColumnOrder: [],
 	boardCardOrder: [],
 	collapsedBoardColumns: [],
@@ -147,8 +150,25 @@ void test("normalizes colorful board setting and class name", () => {
 	assert.equal(normalizeColorfulBoard(undefined), false);
 	assert.equal(normalizeColorfulBoard(false), false);
 	assert.equal(normalizeColorfulBoard(true), true);
-	assert.equal(getBoardClassName(false), "spv-board");
-	assert.equal(getBoardClassName(true), "spv-board spv-board-colorful");
+	assert.equal(getBoardClassName(false, "default"), "spv-board spv-board-card-layout-default");
+	assert.equal(getBoardClassName(true, "compact"), "spv-board spv-board-colorful spv-board-card-layout-compact");
+	assert.equal(getBoardClassName(true, "spacious"), "spv-board spv-board-colorful spv-board-card-layout-spacious");
+});
+
+void test("normalizes board card layout setting", () => {
+	assert.equal(normalizeBoardCardLayout(undefined), "default");
+	assert.equal(normalizeBoardCardLayout("default"), "default");
+	assert.equal(normalizeBoardCardLayout("spacious"), "spacious");
+	assert.equal(normalizeBoardCardLayout("compact"), "compact");
+	assert.equal(normalizeBoardCardLayout("dense"), "default");
+});
+
+void test("normalizes table column divider setting and class name", () => {
+	assert.equal(normalizeShowTableColumnDividers(undefined), true);
+	assert.equal(normalizeShowTableColumnDividers(true), true);
+	assert.equal(normalizeShowTableColumnDividers(false), false);
+	assert.equal(getProjectTableClassName(true), "spv-project-table spv-project-table-column-dividers");
+	assert.equal(getProjectTableClassName(false), "spv-project-table");
 });
 
 function countOccurrences(value: string, needle: string): number {

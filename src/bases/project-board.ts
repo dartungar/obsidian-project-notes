@@ -35,7 +35,7 @@ export function renderProjectBoard(
 	const orderedProjects = getOrderedBoardProjects(projects, plugin.settings.boardCardOrder);
 	const statuses = getBoardStatuses(plugin.settings.statusOptions, projects, plugin.settings.boardColumnOrder);
 	const collapsedStatuses = new Set(plugin.settings.collapsedBoardColumns);
-	const boardEl = containerEl.createDiv({cls: getBoardClassName(plugin.settings.colorfulBoard)});
+	const boardEl = containerEl.createDiv({cls: getBoardClassName(plugin.settings.colorfulBoard, plugin.settings.boardCardLayout)});
 	boardEl.style.setProperty("--spv-board-column-width", `${plugin.settings.boardColumnWidth}px`);
 
 	for (const status of statuses) {

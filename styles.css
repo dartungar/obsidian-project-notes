@@ -137,7 +137,14 @@ button.spv-settings-tab.is-active {
 	background: var(--background-primary);
 	border: var(--border-width, 1px) solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
+}
+
+.spv-bases-row {
 	padding: var(--size-2-3);
+}
+
+.spv-board-card {
+	padding: var(--spv-board-card-padding, var(--size-2-3));
 }
 
 .spv-bases-row {
@@ -571,11 +578,30 @@ button.spv-link-button:focus-visible {
 
 .spv-board {
 	--spv-board-column-width: 280px;
+	--spv-board-gap: var(--size-4-2);
+	--spv-board-column-gap: var(--size-4-2);
+	--spv-board-column-padding: var(--size-2-3);
+	--spv-board-card-gap: var(--size-4-2);
+	--spv-board-card-padding: var(--size-4-2);
+	--spv-board-card-fields-gap: var(--size-2-1);
+	--spv-board-card-fields-margin: var(--size-4-2);
 	align-items: stretch;
 	display: flex;
-	gap: var(--size-4-2);
+	gap: var(--spv-board-gap);
 	overflow-x: auto;
-	padding-bottom: var(--size-4-2);
+	padding-bottom: var(--spv-board-gap);
+}
+
+.spv-board-card-layout-compact {
+	--spv-board-card-padding: var(--size-2-3);
+	--spv-board-card-fields-gap: 0;
+	--spv-board-card-fields-margin: var(--size-2-3);
+}
+
+.spv-board-card-layout-spacious {
+	--spv-board-card-padding: var(--size-4-3);
+	--spv-board-card-fields-gap: var(--size-2-2);
+	--spv-board-card-fields-margin: var(--size-4-3);
 }
 
 .spv-board-column {
@@ -585,10 +611,14 @@ button.spv-link-button:focus-visible {
 	display: flex;
 	flex: 0 0 var(--spv-board-column-width);
 	flex-direction: column;
-	gap: var(--size-4-2);
+	gap: var(--spv-board-column-gap);
 	min-width: min(var(--spv-board-column-width), 100%);
-	padding: var(--size-2-3);
+	padding: var(--spv-board-column-padding);
 	position: relative;
+}
+
+.spv-board-column-body {
+	gap: var(--spv-board-card-gap);
 }
 
 .spv-board-colorful .spv-board-column {
@@ -602,8 +632,8 @@ button.spv-link-button:focus-visible {
 	background: var(--background-secondary);
 	background: color-mix(in srgb, var(--spv-status-color) 16%, transparent);
 	border-radius: var(--radius-s);
-	margin: calc(var(--size-2-3) * -1) calc(var(--size-2-3) * -1) 0;
-	padding: var(--size-2-3);
+	margin: calc(var(--spv-board-column-padding) * -1) calc(var(--spv-board-column-padding) * -1) 0;
+	padding: var(--spv-board-column-padding);
 }
 
 .spv-board-colorful .spv-board-column-count {
@@ -662,6 +692,12 @@ button.spv-link-button:focus-visible {
 .spv-board-card textarea,
 .spv-board-card .spv-board-card-edit {
 	cursor: auto;
+}
+
+.spv-board-card .spv-board-card-fields,
+.spv-board-card .spv-board-card-readonly-fields {
+	margin-top: var(--spv-board-card-fields-margin);
+	row-gap: var(--spv-board-card-fields-gap);
 }
 
 .spv-board-card-dragging,
@@ -726,9 +762,10 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-board-column-collapsed {
+	--spv-board-column-padding: var(--size-2-2);
 	flex-basis: 3.25rem;
 	min-width: 3.25rem;
-	padding: var(--size-2-2);
+	padding: var(--spv-board-column-padding);
 }
 
 .spv-board-column-collapsed .spv-board-column-header {
@@ -763,6 +800,15 @@ button.spv-link-button:focus-visible {
 	padding: var(--size-2-2) var(--size-4-2);
 	text-align: left;
 	vertical-align: top;
+}
+
+.spv-project-table-column-dividers th:not(:last-child),
+.spv-project-table-column-dividers td:not(:last-child) {
+	border-right: var(--table-border-width, 1px) solid var(--table-border-color, var(--background-modifier-border));
+}
+
+.spv-project-table-column-dividers .spv-table-group-row td {
+	border-right: 0;
 }
 
 .spv-project-table th {
@@ -802,12 +848,12 @@ button.spv-link-button:focus-visible {
 	bottom: 0;
 	cursor: col-resize;
 	position: absolute;
-	right: -4px;
+	right: -6px;
 	top: 0;
 	touch-action: none;
 	user-select: none;
-	width: 8px;
-	z-index: 1;
+	width: 12px;
+	z-index: 2;
 }
 
 .spv-table-resize-handle::after {
@@ -815,7 +861,7 @@ button.spv-link-button:focus-visible {
 	bottom: var(--size-2-2);
 	content: "";
 	position: absolute;
-	right: 3px;
+	right: 5px;
 	top: var(--size-2-2);
 	width: 1px;
 }
@@ -824,6 +870,12 @@ button.spv-link-button:focus-visible {
 .spv-table-resize-handle:focus-visible::after,
 .spv-table-column-resizing .spv-table-resize-handle::after {
 	background: var(--interactive-accent);
+}
+
+body.spv-table-column-resizing,
+body.spv-table-column-resizing * {
+	cursor: col-resize !important;
+	user-select: none;
 }
 
 .spv-project-table tbody tr:hover {

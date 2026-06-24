@@ -1,6 +1,8 @@
 import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting, SuggestModal, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "./main";
-import {normalizeColorfulBoard} from "./bases/board-appearance";
+import {normalizeBoardCardLayout, normalizeColorfulBoard} from "./bases/board-appearance";
+import type {BoardCardLayout} from "./bases/board-appearance";
+import {normalizeShowTableColumnDividers} from "./bases/table-appearance";
 import {
 	cloneProjectProperties,
 	createProjectPropertyDefinition,
@@ -57,6 +59,8 @@ export interface SimpleProjectViewsSettings {
 	baseFilePath: string;
 	boardColumnWidth: number;
 	colorfulBoard: boolean;
+	boardCardLayout: BoardCardLayout;
+	showTableColumnDividers: boolean;
 	boardColumnOrder: string[];
 	boardCardOrder: string[];
 	collapsedBoardColumns: string[];
@@ -119,6 +123,8 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
 	colorfulBoard: false,
+	boardCardLayout: "default",
+	showTableColumnDividers: true,
 	boardColumnOrder: [],
 	boardCardOrder: [],
 	collapsedBoardColumns: [],
@@ -180,6 +186,8 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectCreationTemplatePath: normalizeProjectTemplatePath(settings.projectCreationTemplatePath),
 		boardColumnWidth: normalizeBoardColumnWidth(settings.boardColumnWidth),
 		colorfulBoard: normalizeColorfulBoard(settings.colorfulBoard),
+		boardCardLayout: normalizeBoardCardLayout(settings.boardCardLayout),
+		showTableColumnDividers: normalizeShowTableColumnDividers(settings.showTableColumnDividers),
 		boardColumnOrder: settings.boardColumnOrder ?? DEFAULT_SETTINGS.boardColumnOrder,
 		boardCardOrder: normalizeBoardCardOrder(settings.boardCardOrder),
 		collapsedBoardColumns: settings.collapsedBoardColumns ?? DEFAULT_SETTINGS.collapsedBoardColumns,
@@ -528,6 +536,35 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.colorfulBoard)
 					.onChange(async (value) => {
 						this.plugin.settings.colorfulBoard = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Card layout")
+			.setDesc("Choose the spacing used for board cards.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("compact", "Compact")
+					.addOption("default", "Default")
+					.addOption("spacious", "Spacious")
+					.setValue(this.plugin.settings.boardCardLayout)
+					.onChange(async (value) => {
+						this.plugin.settings.boardCardLayout = normalizeBoardCardLayout(value);
+						await this.plugin.saveSettings();
+					});
+			});
+
+		this.addHeading(containerEl, "Table");
+
+		new Setting(containerEl)
+			.setName("Show column dividers")
+			.setDesc("Show vertical dividers between project table columns.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showTableColumnDividers)
+					.onChange(async (value) => {
+						this.plugin.settings.showTableColumnDividers = value;
 						await this.plugin.saveSettings();
 					});
 			});
