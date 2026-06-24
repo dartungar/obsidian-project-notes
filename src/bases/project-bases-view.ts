@@ -1,4 +1,4 @@
-import {BasesView, QueryController, setIcon, setTooltip, TFile} from "obsidian";
+import {BasesView, Menu, QueryController, setIcon, setTooltip, TFile} from "obsidian";
 import type {BasesEntry, BasesEntryGroup, BasesSortConfig} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
@@ -15,6 +15,19 @@ import {
 } from "./table-column-widths";
 import type {TableColumnWidths} from "./table-column-widths";
 import {getProjectTableClassName} from "./table-appearance";
+import {
+	BASES_ORDER_CONFIG_KEY,
+	BASES_SORT_CONFIG_KEY,
+	type BasesWritableSortConfig,
+	getColumnSort,
+	getNextColumnSortDirection,
+	hideColumnFromOrder,
+	normalizeTablePropertyOrder,
+	normalizeTableSorts,
+	setBasesPropertyOrder,
+	setBasesSortProperty,
+	sortProjectsByTableSort,
+} from "./table-sorting";
 import {resolveProjectViewProperties} from "./view-properties";
 import type {ProjectViewColumn, ResolvedProjectViewProperties} from "./view-properties";
 
@@ -134,6 +147,7 @@ export class ProjectBasesView extends BasesView {
 	private renderTable(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {
 		const columns = viewProperties.tableColumns;
 		const columnWidths = this.getTableColumnWidths(columns);
+		const sortedGroups = this.getTableGroups(groups, columns);
 
 		const tableEl = this.containerEl.createEl("table", {
 			cls: getProjectTableClassName(this.plugin.settings.showTableColumnDividers),
@@ -147,7 +161,7 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		const tbodyEl = tableEl.createEl("tbody");
-		for (const group of groups) {
+		for (const group of sortedGroups) {
 			if (group.hasHeading) {
 				const groupRowEl = tbodyEl.createEl("tr", {cls: "spv-table-group-row"});
 				groupRowEl.createEl("td", {
@@ -266,7 +280,20 @@ export class ProjectBasesView extends BasesView {
 		}
 		const sort = this.getColumnSort(column);
 		headerEl.setAttribute("aria-sort", sort ? (sort.direction === "ASC" ? "ascending" : "descending") : "none");
-		const labelEl = headerEl.createSpan({cls: "spv-table-sort-label"});
+		headerEl.addEventListener("contextmenu", (event) => this.showTableColumnMenu(event, column));
+		const sortButtonEl = headerEl.createEl("button", {
+			cls: "spv-table-header-button",
+			attr: {
+				type: "button",
+				"aria-label": this.getTableSortButtonLabel(column, sort),
+			},
+		});
+		sortButtonEl.addEventListener("click", (event) => {
+			event.preventDefault();
+			this.toggleTableColumnSort(column);
+		});
+		sortButtonEl.addEventListener("contextmenu", (event) => this.showTableColumnMenu(event, column));
+		const labelEl = sortButtonEl.createSpan({cls: "spv-table-sort-label"});
 		const property = column.field
 			? this.plugin.settings.projectProperties.find((candidate) => candidate.id === column.field)
 			: null;
@@ -316,8 +343,149 @@ export class ProjectBasesView extends BasesView {
 		});
 	}
 
-	private getColumnSort(column: ProjectViewColumn): BasesSortConfig | null {
-		return this.config.getSort().find((sort) => sort.property === column.propertyId) ?? null;
+	private getColumnSort(column: ProjectViewColumn): BasesWritableSortConfig | null {
+		return getColumnSort(this.getTableSortConfig(), this.getColumnPropertyIds(column));
+	}
+
+	private getTableSortButtonLabel(column: ProjectViewColumn, sort: BasesWritableSortConfig | null): string {
+		return sort?.direction === "ASC"
+			? `Sort ${column.label} Z to A`
+			: `Sort ${column.label} A to Z`;
+	}
+
+	private toggleTableColumnSort(column: ProjectViewColumn): void {
+		const sorts = this.getTableSortConfig();
+		const direction = getNextColumnSortDirection(sorts, this.getColumnPropertyIds(column));
+		this.setTableColumnSort(column, direction);
+	}
+
+	private setTableColumnSort(column: ProjectViewColumn, direction: BasesSortConfig["direction"]): void {
+		if (!setBasesSortProperty(this.config, column.propertyId, direction)) {
+			this.setLegacyTableSortForCurrentSession(column, direction);
+		}
+		this.render();
+	}
+
+	private clearTableColumnSort(column: ProjectViewColumn): void {
+		if (!setBasesSortProperty(this.config, column.propertyId, "NONE")) {
+			this.setLegacyTableSortForCurrentSession(column, null);
+		}
+		this.render();
+	}
+
+	private hideTableColumn(column: ProjectViewColumn): void {
+		const nextOrder = hideColumnFromOrder(this.getTableOrderConfig(), this.getColumnPropertyIds(column));
+		if (!setBasesPropertyOrder(this.config, nextOrder)) {
+			this.config.set(BASES_ORDER_CONFIG_KEY, nextOrder);
+		}
+		this.render();
+	}
+
+	private getColumnPropertyIds(column: ProjectViewColumn): string[] {
+		return column.propertyId === column.configPropertyId
+			? [column.propertyId]
+			: [column.propertyId, column.configPropertyId];
+	}
+
+	private getTableSortConfig(): BasesWritableSortConfig[] {
+		const columns = this.getViewProperties().tableColumns;
+		const sort = this.config.getSort();
+		if (sort.length > 0) {
+			return normalizeTableSorts(sort, columns);
+		}
+
+		return normalizeTableSorts(this.getLegacyTableSortConfig(), columns);
+	}
+
+	private getLegacyTableSortConfig(): BasesWritableSortConfig[] {
+		const sort = this.config.get(BASES_SORT_CONFIG_KEY);
+		if (Array.isArray(sort)) {
+			return sort.filter(isBasesSortConfig);
+		}
+
+		return [];
+	}
+
+	private getTableOrderConfig(): string[] {
+		const columns = this.getViewProperties().tableColumns;
+		const order = this.config.getOrder();
+		if (order.length > 0) {
+			return normalizeTablePropertyOrder(order, columns);
+		}
+
+		const legacyOrder = this.config.get(BASES_ORDER_CONFIG_KEY);
+		if (Array.isArray(legacyOrder)) {
+			return normalizeTablePropertyOrder(legacyOrder.filter(isBasesPropertyId), columns);
+		}
+
+		return [];
+	}
+
+	private setLegacyTableSortForCurrentSession(
+		column: ProjectViewColumn,
+		direction: BasesSortConfig["direction"] | null,
+	): void {
+		const sort = this.getTableSortConfig().filter((candidate) => !this.getColumnPropertyIds(column).includes(candidate.property));
+		if (direction) {
+			sort.unshift({property: column.propertyId, direction});
+		}
+		this.config.set(BASES_SORT_CONFIG_KEY, sort.length > 0 ? sort : null);
+	}
+
+	private getTableGroups(groups: ProjectGroup[], columns: ProjectViewColumn[]): ProjectGroup[] {
+		const sort = this.getTableSortConfig();
+		if (sort.length === 0) {
+			return groups;
+		}
+
+		return groups.map((group) => ({
+			...group,
+			projects: sortProjectsByTableSort(group.projects, columns, sort),
+		}));
+	}
+
+	private showTableColumnMenu(event: MouseEvent, column: ProjectViewColumn): void {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const sort = this.getColumnSort(column);
+		const canHideColumn = this.getViewProperties().tableColumns.length > 1;
+		const menu = Menu.forEvent(event);
+		menu.addItem((item) => {
+			item
+				.setTitle("Hide column")
+				.setIcon("eye-off")
+				.setDisabled(!canHideColumn)
+				.onClick(() => this.hideTableColumn(column));
+		});
+		menu.addSeparator();
+		menu.addItem((item) => {
+			item
+				// Native Bases uses A/Z labels in the table header menu.
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setTitle("Sort A to Z")
+				.setIcon("arrow-down-a-z")
+				.setChecked(sort?.direction === "ASC")
+				.onClick(() => this.setTableColumnSort(column, "ASC"));
+		});
+		menu.addItem((item) => {
+			item
+				// Native Bases uses A/Z labels in the table header menu.
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setTitle("Sort Z to A")
+				.setIcon("arrow-down-z-a")
+				.setChecked(sort?.direction === "DESC")
+				.onClick(() => this.setTableColumnSort(column, "DESC"));
+		});
+		menu.addItem((item) => {
+			item
+				.setTitle("Clear sort")
+				.setIcon("eraser")
+				.setWarning(true)
+				.setDisabled(!sort)
+				.onClick(() => this.clearTableColumnSort(column));
+		});
+		menu.showAtMouseEvent(event);
 	}
 
 	private renderTableResizeHandle(
@@ -335,6 +503,10 @@ export class ProjectBasesView extends BasesView {
 			},
 		});
 		handleEl.addEventListener("pointerdown", (event) => this.startTableColumnResize(event, handleEl, headerEl, column, colEl));
+		handleEl.addEventListener("contextmenu", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+		});
 		handleEl.addEventListener("dblclick", (event) => {
 			event.preventDefault();
 			event.stopPropagation();
@@ -521,4 +693,17 @@ function getProjectsFromGroups(groups: ProjectGroup[]): ProjectInfo[] {
 	}
 
 	return projects;
+}
+
+function isBasesSortConfig(value: unknown): value is BasesWritableSortConfig {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+
+	const sort = value as Partial<BasesSortConfig>;
+	return typeof sort.property === "string" && (sort.direction === "ASC" || sort.direction === "DESC");
+}
+
+function isBasesPropertyId(value: unknown): value is string {
+	return typeof value === "string";
 }

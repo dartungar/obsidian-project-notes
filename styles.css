@@ -829,6 +829,32 @@ button.spv-link-button:focus-visible {
 	gap: var(--size-2-1);
 }
 
+button.spv-table-header-button {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	color: inherit;
+	cursor: pointer;
+	display: inline-flex;
+	font-family: var(--font-interface);
+	font-size: inherit;
+	font-weight: inherit;
+	height: auto;
+	justify-content: flex-start;
+	line-height: inherit;
+	min-height: 0;
+	min-width: 0;
+	padding: 0;
+	text-align: left;
+	width: 100%;
+}
+
+button.spv-table-header-button:hover,
+button.spv-table-header-button:focus-visible {
+	color: var(--text-normal);
+}
+
 .spv-table-resize-handle {
 	bottom: 0;
 	cursor: col-resize;

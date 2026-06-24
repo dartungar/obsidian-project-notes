@@ -110,6 +110,36 @@ void test("respects current Bases view property order", () => {
 	assert.equal(resolved.tableColumns[0]?.label, "Completion");
 });
 
+void test("resolves raw Base property tokens alongside native property IDs", () => {
+	const resolved = resolveProjectViewProperties(
+		settings,
+		["progress", "status", "icon", "file.name", "next_action"],
+		(propertyId) => propertyId === "note.progress" ? "Completion" : propertyId,
+	);
+
+	assert.deepEqual(resolved.tableColumns.map((column) => column.propertyId), [
+		"note.progress",
+		"note.status",
+		"note.icon",
+		"file.name",
+		"note.next_action",
+	]);
+	assert.deepEqual(resolved.tableColumns.map((column) => column.configPropertyId), [
+		"progress",
+		"status",
+		"icon",
+		"file.name",
+		"next_action",
+	]);
+	assert.equal(resolved.tableColumns[0]?.label, "Completion");
+});
+
+void test("does not force file name into an explicit Bases view property order", () => {
+	const resolved = resolveProjectViewProperties(settings, ["note.status"], (propertyId) => propertyId);
+
+	assert.deepEqual(resolved.tableColumns.map((column) => column.propertyId), ["note.status"]);
+});
+
 void test("generated Bases views only show file name by default", () => {
 	const content = buildProjectBaseContent(settings);
 
