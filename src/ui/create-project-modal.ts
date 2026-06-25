@@ -1,21 +1,31 @@
-import {ButtonComponent, Modal, Notice, Setting} from "obsidian";
+import {ButtonComponent, Modal, Notice, Setting, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import {isNumericProperty} from "../project-properties";
 import type {ProjectPropertyDefinition, ProjectPropertyInputValue} from "../project-properties";
 import type {ProjectCreationValues} from "../project-template";
 import {ProjectIconSuggestModal} from "./icon-suggest-modal";
 
+export interface CreateProjectModalOptions {
+	title?: string;
+	submitLabel?: string;
+	errorMessage?: string;
+	createProject?: (values: ProjectCreationValues) => Promise<TFile>;
+}
+
 export class CreateProjectModal extends Modal {
 	private values: ProjectCreationValues;
 	private createButton: ButtonComponent | null = null;
 
-	constructor(private readonly plugin: SimpleProjectViewsPlugin) {
+	constructor(
+		private readonly plugin: SimpleProjectViewsPlugin,
+		private readonly options: CreateProjectModalOptions = {},
+	) {
 		super(plugin.app);
 		this.values = getDefaultProjectValues(plugin);
 	}
 
 	onOpen(): void {
-		this.setTitle("Create project");
+		this.setTitle(this.options.title ?? "Create project");
 		this.contentEl.empty();
 		this.contentEl.addClass("spv-create-project-modal");
 
@@ -194,7 +204,7 @@ export class CreateProjectModal extends Modal {
 			.onClick(() => this.close());
 
 		this.createButton = new ButtonComponent(actionsEl)
-			.setButtonText("Create")
+			.setButtonText(this.options.submitLabel ?? "Create")
 			.setCta()
 			.onClick(() => {
 				void this.createProject();
@@ -213,11 +223,12 @@ export class CreateProjectModal extends Modal {
 
 		this.createButton?.setDisabled(true);
 		try {
-			await this.plugin.createProject(this.values);
+			const createProject = this.options.createProject ?? ((values: ProjectCreationValues) => this.plugin.createProject(values));
+			await createProject(this.values);
 			this.close();
 		} catch (error) {
 			console.error("Simple project views: could not create project", error);
-			new Notice("Could not create project");
+			new Notice(this.options.errorMessage ?? "Could not create project");
 			this.updateCreateButton();
 		}
 	}

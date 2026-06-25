@@ -6,7 +6,8 @@ import {
 	PROJECT_LIST_BASES_VIEW_TYPE,
 	PROJECT_TABLE_BASES_VIEW_TYPE,
 } from "./constants";
-import {ProjectIndex, repairProjectFrontmatter} from "./project-metadata";
+import {appendProjectPropertyListItem, ProjectIndex, repairProjectFrontmatter, updateProjectProperty} from "./project-metadata";
+import {createProjectFileLink} from "./project-relationships";
 import {buildProjectContent, buildProjectPath} from "./project-template";
 import type {ProjectCreationValues} from "./project-template";
 import {DEFAULT_PROJECT_CREATION_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
@@ -92,6 +93,28 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "create-child-project",
+			name: "Create child project",
+			checkCallback: (checking) => {
+				const parentFile = this.getActiveMarkdownFile();
+				if (!parentFile || !this.projectIndex.getProject(parentFile)) {
+					return false;
+				}
+
+				if (!checking) {
+					new CreateProjectModal(this, {
+						title: "Create child project",
+						submitLabel: "Create child",
+						errorMessage: "Could not create child project",
+						createProject: (values) => this.createChildProject(parentFile, values),
+					}).open();
+				}
+
+				return true;
+			},
+		});
+
+		this.addCommand({
 			id: "create-project-base",
 			name: "Create project base",
 			callback: () => {
@@ -127,17 +150,40 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		});
 	}
 
-	async createProject(values: ProjectCreationValues): Promise<TFile> {
+	async createProject(values: ProjectCreationValues, options: {showNotice?: boolean} = {}): Promise<TFile> {
 		const configuredPath = buildProjectPath(this.settings, values);
 		const path = this.getAvailableMarkdownPath(normalizePath(configuredPath));
 		const template = await this.readProjectCreationTemplate();
 		await this.ensureParentFolder(path);
 		const file = await this.app.vault.create(path, buildProjectContent(this.settings, values, template));
 		await this.app.workspace.getLeaf(false).openFile(file);
-		new Notice("Project created");
+		if (options.showNotice !== false) {
+			new Notice("Project created");
+		}
 		this.refreshProjectSurfaces();
 
 		return file;
+	}
+
+	async createChildProject(parentFile: TFile, values: ProjectCreationValues): Promise<TFile> {
+		const childFile = await this.createProject(values, {showNotice: false});
+		const parentPropertyName = this.settings.relationshipPropertyNames.parent.trim();
+		const childrenPropertyName = this.settings.relationshipPropertyNames.children.trim();
+		const parentLink = createProjectFileLink(this.app, childFile, parentFile);
+		const childLink = createProjectFileLink(this.app, parentFile, childFile);
+
+		if (parentPropertyName) {
+			await updateProjectProperty(this.app, childFile, parentPropertyName, parentLink);
+		}
+
+		if (childrenPropertyName) {
+			await appendProjectPropertyListItem(this.app, parentFile, childrenPropertyName, childLink);
+		}
+
+		new Notice("Child project created");
+		this.refreshProjectSurfaces();
+
+		return childFile;
 	}
 
 	private async readProjectCreationTemplate(): Promise<string> {
