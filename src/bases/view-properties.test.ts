@@ -66,6 +66,10 @@ const settings: SimpleProjectViewsSettings = {
 		nextAction: "next_action",
 		blockedReason: "blocked_reason",
 	},
+	relationshipPropertyNames: {
+		parent: "parent",
+		children: "children",
+	},
 	projectProperties,
 	statusOptions: ["todo", "in-progress", "done"],
 	statusColors: {},

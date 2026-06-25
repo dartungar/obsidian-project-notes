@@ -211,12 +211,14 @@ function createElement(): HTMLElement {
 	return {} as HTMLElement;
 }
 
-function createInputElement(): HTMLInputElement {
-	return {} as HTMLInputElement;
+type TextInputElement = HTMLInputElement | HTMLTextAreaElement;
+
+function createInputElement(): TextInputElement {
+	return {} as TextInputElement;
 }
 
 class TextComponent {
-	inputEl = createInputElement();
+	inputEl: TextInputElement = createInputElement();
 
 	setPlaceholder(_placeholder: string): this {
 		return this;
@@ -240,7 +242,7 @@ class TextComponent {
 }
 
 class TextAreaComponent extends TextComponent {
-	inputEl = {} as HTMLTextAreaElement;
+	inputEl: TextInputElement = {} as HTMLTextAreaElement;
 }
 
 class DropdownComponent {
