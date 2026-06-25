@@ -4,7 +4,9 @@ import {
 	readProjectPropertyValue,
 } from "./project-properties";
 import type {ProjectPropertyInputValue, ProjectPropertyValue} from "./project-properties";
-import {repairDuplicateYamlBlocks, updatePropertyInMarkdown} from "./project-frontmatter";
+import {appendPropertyListItemInMarkdown, repairDuplicateYamlBlocks, updatePropertyInMarkdown} from "./project-frontmatter";
+import {readProjectRelationships} from "./project-relationships";
+import type {ProjectRelationships} from "./project-relationships";
 import type {SimpleProjectViewsSettings} from "./settings";
 
 export interface ProjectInfo {
@@ -13,6 +15,7 @@ export interface ProjectInfo {
 	icon: string;
 	status: string;
 	properties: ProjectPropertyValue[];
+	relationships: ProjectRelationships;
 }
 
 export class ProjectIndex {
@@ -34,6 +37,7 @@ export class ProjectIndex {
 			.filter((definition) => definition.name.trim().length > 0)
 			.map((definition) => readProjectPropertyValue(definition, frontmatter[definition.name]));
 		const icon = settings.enabledProperties.icon ? readString(frontmatter[settings.propertyNames.icon]) : "";
+		const relationships = readProjectRelationships(settings, frontmatter);
 
 		return {
 			file,
@@ -41,6 +45,7 @@ export class ProjectIndex {
 			icon,
 			status,
 			properties,
+			relationships,
 		};
 	}
 
@@ -109,6 +114,24 @@ export async function updateProjectProperty(
 
 	const content = await app.vault.read(file);
 	const updatedContent = updatePropertyInMarkdown(content, propertyName, value);
+
+	if (updatedContent !== content) {
+		await app.vault.modify(file, updatedContent);
+	}
+}
+
+export async function appendProjectPropertyListItem(
+	app: App,
+	file: TFile,
+	propertyName: string,
+	value: string,
+): Promise<void> {
+	if (!propertyName.trim() || !value.trim()) {
+		return;
+	}
+
+	const content = await app.vault.read(file);
+	const updatedContent = appendPropertyListItemInMarkdown(content, propertyName, value);
 
 	if (updatedContent !== content) {
 		await app.vault.modify(file, updatedContent);

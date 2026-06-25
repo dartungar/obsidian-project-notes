@@ -129,6 +129,10 @@ function project(title: string, status: string, progress: number): ProjectInfo {
 		title,
 		icon: "",
 		status,
+		relationships: {
+			parent: null,
+			children: [],
+		},
 		properties: [
 			{
 				definition: {
