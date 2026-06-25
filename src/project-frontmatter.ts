@@ -35,6 +35,32 @@ export function updatePropertyInMarkdown(content: string, propertyName: string, 
 	return `${content.slice(0, firstFrontmatter.start)}${preservedOpening}${nextBody}${content.slice(targetFrontmatter.bodyEnd)}`;
 }
 
+export function appendPropertyListItemInMarkdown(content: string, propertyName: string, value: string): string {
+	const trimmedValue = value.trim();
+	if (!propertyName.trim() || !trimmedValue) {
+		return content;
+	}
+
+	const frontmatters = getTopEditableYamlGroup(content);
+
+	if (frontmatters.length === 0) {
+		const body = appendYamlListItem("", propertyName, trimmedValue);
+		const documentStart = getDocumentStart(content);
+		return `${content.slice(0, documentStart)}---\n${body}\n---\n${content.slice(documentStart)}`;
+	}
+
+	const firstFrontmatter = frontmatters[0]!;
+	const targetFrontmatter = frontmatters[frontmatters.length - 1]!;
+	const preservedOpening = content.slice(targetFrontmatter.start, targetFrontmatter.bodyStart);
+	const mergedBody = mergeSimpleYamlScalars(
+		frontmatters.slice(0, -1).map((frontmatter) => frontmatter.body),
+		targetFrontmatter.body,
+	);
+	const nextBody = appendYamlListItem(mergedBody, propertyName, trimmedValue);
+
+	return `${content.slice(0, firstFrontmatter.start)}${preservedOpening}${nextBody}${content.slice(targetFrontmatter.bodyEnd)}`;
+}
+
 export function repairDuplicateYamlBlocks(content: string): string {
 	const frontmatters = getTopEditableYamlGroup(content);
 	if (frontmatters.length < 2) {
@@ -173,6 +199,103 @@ function updateYamlScalar(body: string, propertyName: string, value: string | nu
 
 	lines.push(`${formatYamlKey(propertyName)}: ${formatYamlScalar(value)}`);
 	return lines.join(lineEnd);
+}
+
+function appendYamlListItem(body: string, propertyName: string, value: string): string {
+	const lines = body.length ? body.split(/\r?\n/) : [];
+	const lineEnd = body.includes("\r\n") ? "\r\n" : "\n";
+	const keyIndex = lines.findIndex((line) => isYamlKeyLine(line, propertyName));
+
+	if (keyIndex === -1) {
+		lines.push(...formatYamlListProperty(propertyName, [value]));
+		return lines.join(lineEnd);
+	}
+
+	const replaceEnd = findYamlPropertyEnd(lines, keyIndex);
+	const existingValues = readYamlPropertyValues(lines, keyIndex, replaceEnd);
+	const values = appendUniqueYamlValue(existingValues, value);
+	if (values.length === existingValues.length && isYamlListProperty(lines, keyIndex, replaceEnd)) {
+		return body;
+	}
+
+	lines.splice(keyIndex, replaceEnd - keyIndex, ...formatYamlListProperty(propertyName, values));
+	return lines.join(lineEnd);
+}
+
+function readYamlPropertyValues(lines: string[], keyIndex: number, endIndex: number): string[] {
+	const values: string[] = [];
+	const scalarValue = readYamlScalarValue(lines[keyIndex] ?? "");
+	if (scalarValue) {
+		values.push(scalarValue);
+	}
+
+	for (let index = keyIndex + 1; index < endIndex; index += 1) {
+		const value = readYamlListLineValue(lines[index] ?? "");
+		if (value) {
+			values.push(value);
+		}
+	}
+
+	return values;
+}
+
+function readYamlScalarValue(line: string): string {
+	const separatorIndex = line.indexOf(":");
+	if (separatorIndex === -1) {
+		return "";
+	}
+
+	return unquoteYamlScalar(line.slice(separatorIndex + 1).trim());
+}
+
+function readYamlListLineValue(line: string): string {
+	const match = /^[ \t]*-[ \t]*(.*)$/.exec(line);
+	return match ? unquoteYamlScalar(match[1]?.trim() ?? "") : "";
+}
+
+function isYamlListProperty(lines: string[], keyIndex: number, endIndex: number): boolean {
+	return endIndex > keyIndex + 1
+		&& lines.slice(keyIndex + 1, endIndex).some((line) => /^[ \t]*-[ \t]*/.test(line));
+}
+
+function appendUniqueYamlValue(values: string[], value: string): string[] {
+	const normalizedValue = normalizeYamlComparableValue(value);
+	if (values.some((existingValue) => normalizeYamlComparableValue(existingValue) === normalizedValue)) {
+		return values;
+	}
+
+	return [...values, value];
+}
+
+function normalizeYamlComparableValue(value: string): string {
+	return unquoteYamlScalar(value).trim();
+}
+
+function unquoteYamlScalar(value: string): string {
+	if (!value) {
+		return "";
+	}
+
+	if (value.startsWith("\"") && value.endsWith("\"")) {
+		try {
+			return JSON.parse(value) as string;
+		} catch {
+			return value.slice(1, -1);
+		}
+	}
+
+	if (value.startsWith("'") && value.endsWith("'")) {
+		return value.slice(1, -1).replace(/''/g, "'");
+	}
+
+	return value;
+}
+
+function formatYamlListProperty(propertyName: string, values: string[]): string[] {
+	return [
+		`${formatYamlKey(propertyName)}:`,
+		...values.map((item) => `  - ${formatYamlScalar(item)}`),
+	];
 }
 
 function isYamlKeyLine(line: string, propertyName: string): boolean {
