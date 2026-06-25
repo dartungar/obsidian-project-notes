@@ -24,7 +24,7 @@ import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 
 export type ProjectMatchType = "tag" | "property" | "folder";
 export type ProjectToolbarPosition = "top" | "bottom" | "left" | "right";
-type SettingsTabId = "general" | "views" | "noteBar" | "statuses" | "properties";
+type SettingsTabId = "general" | "views" | "noteBar" | "relationships" | "statuses" | "properties";
 
 export interface ProjectPropertyNames {
 	icon: string;
@@ -35,6 +35,11 @@ export interface ProjectPropertyNames {
 	followUp: string;
 	nextAction: string;
 	blockedReason: string;
+}
+
+export interface ProjectRelationshipPropertyNames {
+	parent: string;
+	children: string;
 }
 
 export type ProjectPropertyKey = keyof ProjectPropertyNames;
@@ -49,6 +54,7 @@ export interface SimpleProjectViewsSettings {
 	projectPropertyValue: string;
 	projectFolder: string;
 	propertyNames: ProjectPropertyNames;
+	relationshipPropertyNames: ProjectRelationshipPropertyNames;
 	enabledProperties: ProjectPropertyToggles;
 	projectProperties: ProjectPropertyDefinition[];
 	statusOptions: string[];
@@ -98,6 +104,10 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 		nextAction: "next_action",
 		blockedReason: "blocked_reason",
 	},
+	relationshipPropertyNames: {
+		parent: "parent",
+		children: "children",
+	},
 	enabledProperties: {
 		icon: true,
 		progress: true,
@@ -140,6 +150,7 @@ const TAB_LABELS: Record<SettingsTabId, string> = {
 	general: "General",
 	views: "Views",
 	noteBar: "Note bar",
+	relationships: "Relationships",
 	statuses: "Statuses",
 	properties: "Properties",
 };
@@ -157,6 +168,7 @@ export function formatListSetting(value: string[]): string {
 
 export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> = {}): SimpleProjectViewsSettings {
 	const propertyNames = normalizeProjectPropertyNames(settings.propertyNames);
+	const relationshipPropertyNames = normalizeProjectRelationshipPropertyNames(settings.relationshipPropertyNames);
 	const enabledProperties = normalizeProjectPropertyToggles(settings.enabledProperties);
 	const projectProperties = Array.isArray(settings.projectProperties)
 		? normalizeProjectPropertyDefinitions(settings.projectProperties)
@@ -167,6 +179,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		...DEFAULT_SETTINGS,
 		...settings,
 		propertyNames,
+		relationshipPropertyNames,
 		enabledProperties,
 		projectProperties,
 		statusOptions,
@@ -291,6 +304,15 @@ function normalizeProjectPropertyNames(value: unknown): ProjectPropertyNames {
 	};
 }
 
+function normalizeProjectRelationshipPropertyNames(value: unknown): ProjectRelationshipPropertyNames {
+	const propertyNames = isRecord(value) ? value : {};
+
+	return {
+		parent: readNonEmptyString(propertyNames.parent) ?? DEFAULT_SETTINGS.relationshipPropertyNames.parent,
+		children: readNonEmptyString(propertyNames.children) ?? DEFAULT_SETTINGS.relationshipPropertyNames.children,
+	};
+}
+
 function normalizeProjectPropertyToggles(value: unknown): ProjectPropertyToggles {
 	const toggles = isRecord(value) ? value : {};
 
@@ -318,6 +340,11 @@ function normalizeStringList(value: unknown): string[] {
 
 function readString(value: unknown): string | null {
 	return typeof value === "string" ? value.trim() : null;
+}
+
+function readNonEmptyString(value: unknown): string | null {
+	const stringValue = readString(value);
+	return stringValue && stringValue.length > 0 ? stringValue : null;
 }
 
 function readBoolean(value: unknown, fallback: boolean): boolean {
@@ -366,6 +393,8 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			this.displayViews(containerEl);
 		} else if (this.activeTab === "noteBar") {
 			this.displayNoteBar(containerEl);
+		} else if (this.activeTab === "relationships") {
+			this.displayRelationships(containerEl);
 		} else if (this.activeTab === "statuses") {
 			this.displayStatuses(containerEl);
 		} else {
@@ -631,6 +660,36 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.noteToolbarPosition)
 					.onChange(async (value) => {
 						this.plugin.settings.noteToolbarPosition = normalizeProjectToolbarPosition(value);
+						await this.plugin.saveSettings();
+					});
+				});
+	}
+
+	private displayRelationships(containerEl: HTMLElement): void {
+		this.addHeading(containerEl, "Relationships");
+
+		new Setting(containerEl)
+			.setName("Parent property")
+			.setDesc("Note property used to store the parent project link.")
+			.addText((text) => {
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.relationshipPropertyNames.parent)
+					.setValue(this.plugin.settings.relationshipPropertyNames.parent)
+					.onChange(async (value) => {
+						this.plugin.settings.relationshipPropertyNames.parent = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Children property")
+			.setDesc("Note property used to store child project links.")
+			.addText((text) => {
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.relationshipPropertyNames.children)
+					.setValue(this.plugin.settings.relationshipPropertyNames.children)
+					.onChange(async (value) => {
+						this.plugin.settings.relationshipPropertyNames.children = value.trim();
 						await this.plugin.saveSettings();
 					});
 			});
