@@ -70,6 +70,8 @@ const settings: SimpleProjectViewsSettings = {
 		parent: "parent",
 		children: "children",
 	},
+	relationshipsEnabled: true,
+	relationshipDetailFields: ["status"],
 	projectProperties,
 	statusOptions: ["todo", "in-progress", "done"],
 	statusColors: {},

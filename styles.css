@@ -245,8 +245,27 @@ button.spv-settings-tab.is-active {
 	padding: 0;
 }
 
+.spv-relationship-list li {
+	min-width: 0;
+}
+
 .spv-relationship-link {
+	display: block;
 	max-width: 100%;
+	overflow-wrap: anywhere;
+	text-align: left;
+	white-space: normal;
+	width: 100%;
+}
+
+.spv-relationship-details {
+	margin-top: var(--size-2-1);
+	width: 100%;
+}
+
+.spv-relationship-details.spv-project-summary-fields {
+	gap: var(--size-2-1);
+	margin-top: var(--size-2-1);
 }
 
 button.spv-create-child-project {

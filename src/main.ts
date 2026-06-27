@@ -56,6 +56,11 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	}
 
 	openCreateChildProjectModal(parentFile: TFile): void {
+		if (!this.settings.relationshipsEnabled) {
+			new Notice("Project relationships are disabled");
+			return;
+		}
+
 		if (!this.projectIndex.getProject(parentFile)) {
 			new Notice("Open a project note to create a child project");
 			return;
@@ -110,6 +115,10 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 			id: "create-child-project",
 			name: "Create child project",
 			checkCallback: (checking) => {
+				if (!this.settings.relationshipsEnabled) {
+					return false;
+				}
+
 				const parentFile = this.getActiveMarkdownFile();
 				if (!parentFile || !this.projectIndex.getProject(parentFile)) {
 					return false;

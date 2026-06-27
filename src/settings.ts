@@ -54,7 +54,9 @@ export interface SimpleProjectViewsSettings {
 	projectPropertyValue: string;
 	projectFolder: string;
 	propertyNames: ProjectPropertyNames;
+	relationshipsEnabled: boolean;
 	relationshipPropertyNames: ProjectRelationshipPropertyNames;
+	relationshipDetailFields: string[];
 	enabledProperties: ProjectPropertyToggles;
 	projectProperties: ProjectPropertyDefinition[];
 	statusOptions: string[];
@@ -104,10 +106,12 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 		nextAction: "next_action",
 		blockedReason: "blocked_reason",
 	},
+	relationshipsEnabled: true,
 	relationshipPropertyNames: {
 		parent: "parent",
 		children: "children",
 	},
+	relationshipDetailFields: ["status"],
 	enabledProperties: {
 		icon: true,
 		progress: true,
@@ -169,6 +173,7 @@ export function formatListSetting(value: string[]): string {
 export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> = {}): SimpleProjectViewsSettings {
 	const propertyNames = normalizeProjectPropertyNames(settings.propertyNames);
 	const relationshipPropertyNames = normalizeProjectRelationshipPropertyNames(settings.relationshipPropertyNames);
+	const relationshipDetailFields = normalizeRelationshipDetailFields(settings.relationshipDetailFields);
 	const enabledProperties = normalizeProjectPropertyToggles(settings.enabledProperties);
 	const projectProperties = Array.isArray(settings.projectProperties)
 		? normalizeProjectPropertyDefinitions(settings.projectProperties)
@@ -179,7 +184,9 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		...DEFAULT_SETTINGS,
 		...settings,
 		propertyNames,
+		relationshipsEnabled: readBoolean(settings.relationshipsEnabled, DEFAULT_SETTINGS.relationshipsEnabled),
 		relationshipPropertyNames,
+		relationshipDetailFields,
 		enabledProperties,
 		projectProperties,
 		statusOptions,
@@ -311,6 +318,12 @@ function normalizeProjectRelationshipPropertyNames(value: unknown): ProjectRelat
 		parent: readNonEmptyString(propertyNames.parent) ?? DEFAULT_SETTINGS.relationshipPropertyNames.parent,
 		children: readNonEmptyString(propertyNames.children) ?? DEFAULT_SETTINGS.relationshipPropertyNames.children,
 	};
+}
+
+function normalizeRelationshipDetailFields(value: unknown): string[] {
+	return Array.isArray(value)
+		? normalizeStringList(value)
+		: DEFAULT_SETTINGS.relationshipDetailFields;
 }
 
 function normalizeProjectPropertyToggles(value: unknown): ProjectPropertyToggles {
@@ -669,12 +682,26 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.addHeading(containerEl, "Relationships");
 
 		new Setting(containerEl)
+			.setName("Enable relationships")
+			.setDesc("Show parent and child project links, and enable child project creation.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.relationshipsEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.relationshipsEnabled = value;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
+
+		new Setting(containerEl)
 			.setName("Parent property")
 			.setDesc("Note property used to store the parent project link.")
 			.addText((text) => {
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.relationshipPropertyNames.parent)
 					.setValue(this.plugin.settings.relationshipPropertyNames.parent)
+					.setDisabled(!this.plugin.settings.relationshipsEnabled)
 					.onChange(async (value) => {
 						this.plugin.settings.relationshipPropertyNames.parent = value.trim();
 						await this.plugin.saveSettings();
@@ -688,11 +715,51 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.relationshipPropertyNames.children)
 					.setValue(this.plugin.settings.relationshipPropertyNames.children)
+					.setDisabled(!this.plugin.settings.relationshipsEnabled)
 					.onChange(async (value) => {
 						this.plugin.settings.relationshipPropertyNames.children = value.trim();
 						await this.plugin.saveSettings();
 					});
 			});
+
+		this.addHeading(containerEl, "Relationship details");
+		this.addRelationshipDetailFieldSetting(containerEl, "status", "Status");
+		for (const property of this.plugin.settings.projectProperties) {
+			if (property.name.trim()) {
+				this.addRelationshipDetailFieldSetting(containerEl, property.id, property.label || property.name);
+			}
+		}
+	}
+
+	private addRelationshipDetailFieldSetting(containerEl: HTMLElement, field: string, label: string): void {
+		const enabledFields = new Set(this.plugin.settings.relationshipDetailFields);
+
+		new Setting(containerEl)
+			.setName(label)
+			.setDesc("Show this field below related project links.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(enabledFields.has(field))
+					.onChange(async (value) => {
+						this.plugin.settings.relationshipDetailFields = this.getRelationshipDetailFields(field, value);
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private getRelationshipDetailFields(field: string, enabled: boolean): string[] {
+		const fields = new Set(this.plugin.settings.relationshipDetailFields);
+		if (enabled) {
+			fields.add(field);
+		} else {
+			fields.delete(field);
+		}
+
+		const orderedFields = [
+			"status",
+			...this.plugin.settings.projectProperties.map((property) => property.id),
+		];
+		return orderedFields.filter((candidate) => fields.has(candidate));
 	}
 
 	private displayStatuses(containerEl: HTMLElement): void {

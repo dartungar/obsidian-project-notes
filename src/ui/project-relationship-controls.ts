@@ -3,32 +3,42 @@ import type {TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import type {ProjectRelationshipLink} from "../project-relationships";
+import {renderProjectControls} from "./project-controls";
 
 export function renderProjectRelationships(
 	containerEl: HTMLElement,
 	plugin: SimpleProjectViewsPlugin,
 	project: ProjectInfo,
 ): void {
-	const parent = resolveRelationshipFile(plugin, project, project.relationships.parent);
+	if (!plugin.settings.relationshipsEnabled) {
+		return;
+	}
+
+	const parentFile = resolveRelationshipFile(plugin, project, project.relationships.parent);
+	const parentProject = parentFile ? plugin.projectIndex.getProject(parentFile) : null;
 	const children = project.relationships.children
 		.map((child) => ({
 			link: child,
 			file: resolveRelationshipFile(plugin, project, child),
 		}))
-		.filter((child): child is {link: ProjectRelationshipLink; file: TFile} => child.file !== null);
+		.filter((child): child is {link: ProjectRelationshipLink; file: TFile} => child.file !== null)
+		.map((child) => ({
+			...child,
+			project: plugin.projectIndex.getProject(child.file),
+		}));
 	const canCreateChild = plugin.settings.relationshipPropertyNames.parent.trim().length > 0
 		&& plugin.settings.relationshipPropertyNames.children.trim().length > 0;
 
-	if (!parent && children.length === 0 && !canCreateChild) {
+	if (!parentFile && children.length === 0 && !canCreateChild) {
 		return;
 	}
 
 	const relationshipsEl = containerEl.createDiv({cls: "spv-project-relationships"});
 
-	if (parent) {
+	if (parentFile) {
 		const rowEl = relationshipsEl.createDiv({cls: "spv-relationship-row"});
 		rowEl.createSpan({cls: "spv-relationship-label", text: "Parent"});
-		createRelationshipButton(rowEl, plugin, project.relationships.parent?.display ?? parent.basename, parent);
+		createRelationshipItem(rowEl, plugin, project.relationships.parent?.display ?? parentFile.basename, parentFile, parentProject);
 	}
 
 	if (children.length > 0) {
@@ -37,7 +47,7 @@ export function renderProjectRelationships(
 		const listEl = groupEl.createEl("ul", {cls: "spv-relationship-list"});
 		for (const child of children) {
 			const itemEl = listEl.createEl("li");
-			createRelationshipButton(itemEl, plugin, child.link.display || child.file.basename, child.file);
+			createRelationshipItem(itemEl, plugin, child.link.display || child.file.basename, child.file, child.project);
 		}
 	}
 
@@ -57,11 +67,12 @@ export function renderProjectRelationships(
 	}
 }
 
-function createRelationshipButton(
+function createRelationshipItem(
 	containerEl: HTMLElement,
 	plugin: SimpleProjectViewsPlugin,
 	label: string,
 	file: TFile,
+	project: ProjectInfo | null,
 ): void {
 	const buttonEl = containerEl.createEl("button", {
 		cls: "spv-link-button spv-relationship-link",
@@ -72,6 +83,17 @@ function createRelationshipButton(
 	});
 	buttonEl.addEventListener("click", () => {
 		void plugin.app.workspace.getLeaf(false).openFile(file);
+	});
+
+	if (!project || plugin.settings.relationshipDetailFields.length === 0) {
+		return;
+	}
+
+	renderProjectControls(containerEl, plugin.app, plugin.settings, project, {
+		compact: true,
+		controlClass: "spv-relationship-details",
+		fields: plugin.settings.relationshipDetailFields,
+		readOnly: true,
 	});
 }
 
