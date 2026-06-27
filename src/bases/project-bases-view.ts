@@ -2,7 +2,7 @@ import {BasesView, Menu, QueryController, setIcon, setTooltip, TFile} from "obsi
 import type {BasesEntry, BasesEntryGroup, BasesSortConfig} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
-import {getStatusColor} from "../settings";
+import {getStatusColor, getStatusDisplayClassName} from "../settings";
 import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/project-controls";
 import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
@@ -14,7 +14,7 @@ import {
 	setTableColumnWidth,
 } from "./table-column-widths";
 import type {TableColumnWidths} from "./table-column-widths";
-import {getProjectTableClassName} from "./table-appearance";
+import {getProjectTableClassName, shouldUseReadOnlyProgressTableCell} from "./table-appearance";
 import {
 	BASES_ORDER_CONFIG_KEY,
 	BASES_SORT_CONFIG_KEY,
@@ -48,6 +48,7 @@ export class ProjectBasesView extends BasesView {
 	readonly type: string;
 	private readonly containerEl: HTMLElement;
 	private readonly editingListProjects = new Set<string>();
+	private readonly editingTableProgressCells = new Set<string>();
 
 	constructor(
 		controller: QueryController,
@@ -335,11 +336,71 @@ export class ProjectBasesView extends BasesView {
 			return;
 		}
 
+		const editKey = this.getTableProgressCellKey(project, column.field);
+		const isEditingProgress = this.editingTableProgressCells.has(editKey);
+		const useReadOnlyProgress = shouldUseReadOnlyProgressTableCell(
+			this.plugin.settings,
+			column.field,
+			isEditingProgress,
+		);
+
+		if (useReadOnlyProgress) {
+			this.prepareReadOnlyProgressTableCell(cellEl, project, column, editKey);
+		} else if (isEditingProgress) {
+			cellEl.addClass("spv-table-progress-cell");
+			cellEl.addClass("is-editing");
+			this.closeTableProgressEditOnFocusOut(cellEl, editKey);
+		}
+
 		renderProjectControls(cellEl, this.plugin.app, this.plugin.settings, project, {
 			fields: [column.field],
 			controlClass: "spv-table-controls",
 			labels: this.getFieldLabels(),
+			focusField: isEditingProgress ? column.field : undefined,
+			readOnlyProgress: useReadOnlyProgress,
 			afterUpdate: () => this.plugin.refreshProjectSurfaces(),
+		});
+	}
+
+	private prepareReadOnlyProgressTableCell(
+		cellEl: HTMLTableCellElement,
+		project: ProjectInfo,
+		column: ProjectViewColumn,
+		editKey: string,
+	): void {
+		cellEl.addClass("spv-table-progress-cell");
+		cellEl.addClass("is-readonly");
+		cellEl.setAttribute("role", "button");
+		cellEl.setAttribute("tabindex", "0");
+		cellEl.setAttribute("aria-label", `Edit ${column.label} for ${project.title}`);
+		cellEl.addEventListener("click", () => this.startTableProgressEdit(editKey));
+		cellEl.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter" && event.key !== " ") {
+				return;
+			}
+
+			event.preventDefault();
+			this.startTableProgressEdit(editKey);
+		});
+	}
+
+	private startTableProgressEdit(editKey: string): void {
+		this.editingTableProgressCells.add(editKey);
+		this.render();
+	}
+
+	private getTableProgressCellKey(project: ProjectInfo, field: string): string {
+		return `${project.file.path}::${field}`;
+	}
+
+	private closeTableProgressEditOnFocusOut(cellEl: HTMLTableCellElement, editKey: string): void {
+		cellEl.addEventListener("focusout", () => {
+			cellEl.ownerDocument.defaultView?.requestAnimationFrame(() => {
+				if (!cellEl.contains(cellEl.ownerDocument.activeElement)) {
+					this.editingTableProgressCells.delete(editKey);
+					this.render();
+				}
+			});
 		});
 	}
 
@@ -639,7 +700,7 @@ export class ProjectBasesView extends BasesView {
 
 	private renderStatusBadge(containerEl: HTMLElement, status: string): void {
 		const badgeEl = containerEl.createSpan({
-			cls: "spv-status-badge",
+			cls: getStatusDisplayClassName(this.plugin.settings.statusDisplay),
 			text: status || "No status",
 		});
 		badgeEl.style.setProperty("--spv-status-color", getStatusColor(this.plugin.settings, status));

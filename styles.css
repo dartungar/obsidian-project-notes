@@ -626,9 +626,10 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-status-badge {
-	border: var(--border-width, 1px) solid var(--spv-status-color, var(--background-modifier-border));
+	background: transparent;
+	border: var(--border-width, 1px) solid transparent;
 	border-radius: var(--radius-s);
-	color: var(--spv-status-color, var(--text-muted));
+	color: var(--text-muted);
 	flex: 0 0 auto;
 	font-size: var(--font-ui-smaller);
 	line-height: var(--line-height-tight);
@@ -637,6 +638,26 @@ button.spv-link-button:focus-visible {
 	padding: 1px var(--size-2-2);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.spv-status-display-colored-text {
+	color: var(--spv-status-color, var(--text-muted));
+}
+
+.spv-status-display-outline {
+	border-color: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.spv-status-display-colored-outline {
+	border-color: var(--spv-status-color, var(--background-modifier-border));
+	color: var(--spv-status-color, var(--text-muted));
+}
+
+.spv-status-display-filled {
+	background: var(--spv-status-color, var(--interactive-accent));
+	border-color: var(--spv-status-color, var(--interactive-accent));
+	color: var(--text-on-accent, white);
 }
 
 .spv-board {
@@ -899,6 +920,19 @@ button.spv-link-button:focus-visible {
 
 .spv-table-controls .spv-control-field label {
 	display: none;
+}
+
+.spv-table-progress-cell.is-readonly {
+	cursor: pointer;
+}
+
+.spv-table-progress-cell.is-readonly:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--interactive-accent);
+	outline-offset: -2px;
+}
+
+.spv-table-progress-cell .spv-control-progress-readonly {
+	grid-template-columns: minmax(0, 1fr) max-content;
 }
 
 .spv-table-sort-label {

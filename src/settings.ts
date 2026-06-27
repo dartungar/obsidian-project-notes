@@ -24,6 +24,7 @@ import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 
 export type ProjectMatchType = "tag" | "property" | "folder";
 export type ProjectToolbarPosition = "top" | "bottom" | "left" | "right";
+export type StatusDisplayMode = "text" | "colored-text" | "outline" | "colored-outline" | "filled";
 type SettingsTabId = "general" | "views" | "noteBar" | "relationships" | "statuses" | "properties";
 
 export interface ProjectPropertyNames {
@@ -61,6 +62,7 @@ export interface SimpleProjectViewsSettings {
 	projectProperties: ProjectPropertyDefinition[];
 	statusOptions: string[];
 	statusColors: Record<string, string>;
+	statusDisplay: StatusDisplayMode;
 	showProjectToolbar: boolean;
 	noteToolbarPosition: ProjectToolbarPosition;
 	projectCreationPathTemplate: string;
@@ -131,6 +133,7 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 		done: "#35a35c",
 		cancelled: "#6f6f6f",
 	},
+	statusDisplay: "colored-outline",
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
@@ -149,6 +152,7 @@ const EXAMPLE_PROJECT_PROPERTY_NAME = "type";
 const EXAMPLE_PROJECT_PROPERTY_VALUE = "project";
 const EXAMPLE_NEW_STATUS = "waiting";
 const FALLBACK_STATUS_COLOR = "#8a8a8a";
+const STATUS_DISPLAY_MODES: StatusDisplayMode[] = ["text", "colored-text", "outline", "colored-outline", "filled"];
 
 const TAB_LABELS: Record<SettingsTabId, string> = {
 	general: "General",
@@ -191,6 +195,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectProperties,
 		statusOptions,
 		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
+		statusDisplay: normalizeStatusDisplay(settings.statusDisplay),
 		projectMatchType: normalizeProjectMatchType(settings.projectMatchType),
 		projectTag: typeof settings.projectTag === "string" ? normalizeProjectTag(settings.projectTag) : DEFAULT_SETTINGS.projectTag,
 		projectPropertyName: typeof settings.projectPropertyName === "string" ? settings.projectPropertyName.trim() : DEFAULT_SETTINGS.projectPropertyName,
@@ -220,6 +225,31 @@ export function normalizeBoardColumnWidth(value: unknown): number {
 
 export function getStatusColor(settings: SimpleProjectViewsSettings, status: string): string {
 	return settings.statusColors[status] ?? DEFAULT_SETTINGS.statusColors[status] ?? FALLBACK_STATUS_COLOR;
+}
+
+export function normalizeStatusDisplay(value: unknown): StatusDisplayMode {
+	return typeof value === "string" && STATUS_DISPLAY_MODES.includes(value as StatusDisplayMode)
+		? value as StatusDisplayMode
+		: DEFAULT_SETTINGS.statusDisplay;
+}
+
+export function getStatusDisplayClassName(mode: StatusDisplayMode): string {
+	return `spv-status-badge spv-status-display-${mode}`;
+}
+
+export function getStatusDisplayLabel(mode: StatusDisplayMode): string {
+	switch (mode) {
+		case "colored-text":
+			return "Colored text";
+		case "colored-outline":
+			return "Colored outline";
+		case "filled":
+			return "Filled";
+		case "outline":
+			return "Outline";
+		case "text":
+			return "Text";
+	}
 }
 
 function migrateLegacyProjectProperties(
@@ -765,6 +795,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	private displayStatuses(containerEl: HTMLElement): void {
 		this.addHeading(containerEl, "Statuses");
 		this.addStatusPropertySetting(containerEl);
+		this.addStatusDisplaySetting(containerEl);
 
 		for (let index = 0; index < this.plugin.settings.statusOptions.length; index += 1) {
 			const status = this.plugin.settings.statusOptions[index];
@@ -905,6 +936,24 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.propertyNames.status)
 					.onChange(async (value) => {
 						this.plugin.settings.propertyNames.status = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private addStatusDisplaySetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName("Status display")
+			.setDesc("Choose how status labels appear in project views.")
+			.addDropdown((dropdown) => {
+				for (const mode of STATUS_DISPLAY_MODES) {
+					dropdown.addOption(mode, getStatusDisplayLabel(mode));
+				}
+
+				dropdown
+					.setValue(this.plugin.settings.statusDisplay)
+					.onChange(async (value) => {
+						this.plugin.settings.statusDisplay = normalizeStatusDisplay(value);
 						await this.plugin.saveSettings();
 					});
 			});

@@ -12,7 +12,7 @@ import {
 import type {ProjectPropertyDefinition, ProjectPropertyInputValue, ProjectPropertyValue} from "../project-properties";
 import {updateProjectProperty} from "../project-metadata";
 import type {ProjectInfo} from "../project-metadata";
-import {getStatusColor} from "../settings";
+import {getStatusColor, getStatusDisplayClassName} from "../settings";
 import type {SimpleProjectViewsSettings} from "../settings";
 import {ProjectIconSuggestModal} from "./icon-suggest-modal";
 
@@ -178,7 +178,7 @@ function createStatusSummaryItem(
 	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-status"});
 	itemEl.createSpan({cls: "spv-summary-label", text: label});
 	const badgeEl = itemEl.createSpan({
-		cls: "spv-status-badge",
+		cls: getStatusDisplayClassName(settings.statusDisplay),
 		text: status || "No status",
 	});
 	badgeEl.style.setProperty("--spv-status-color", getStatusColor(settings, status));

@@ -5,7 +5,11 @@ import {getBoardClassName, normalizeBoardCardLayout, normalizeColorfulBoard} fro
 import {buildProjectBaseContent} from "./base-file";
 import type {ProjectPropertyDefinition} from "../project-properties";
 import type {SimpleProjectViewsSettings} from "../settings";
-import {getProjectTableClassName, normalizeShowTableColumnDividers} from "./table-appearance";
+import {
+	getProjectTableClassName,
+	normalizeShowTableColumnDividers,
+	shouldUseReadOnlyProgressTableCell,
+} from "./table-appearance";
 import {
 	MIN_TABLE_COLUMN_WIDTH,
 	normalizeTableColumnWidths,
@@ -75,6 +79,7 @@ const settings: SimpleProjectViewsSettings = {
 	projectProperties,
 	statusOptions: ["todo", "in-progress", "done"],
 	statusColors: {},
+	statusDisplay: "colored-outline",
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
@@ -205,6 +210,13 @@ void test("normalizes table column divider setting and class name", () => {
 	assert.equal(normalizeShowTableColumnDividers(false), false);
 	assert.equal(getProjectTableClassName(true), "spv-project-table spv-project-table-column-dividers");
 	assert.equal(getProjectTableClassName(false), "spv-project-table");
+});
+
+void test("uses read-only progress displays for table progress cells until editing", () => {
+	assert.equal(shouldUseReadOnlyProgressTableCell(settings, "progress", false), true);
+	assert.equal(shouldUseReadOnlyProgressTableCell(settings, "progress", true), false);
+	assert.equal(shouldUseReadOnlyProgressTableCell(settings, "nextAction", false), false);
+	assert.equal(shouldUseReadOnlyProgressTableCell(settings, "missing", false), false);
 });
 
 function countOccurrences(value: string, needle: string): number {

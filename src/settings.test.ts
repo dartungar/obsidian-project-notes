@@ -1,7 +1,7 @@
 /* eslint-disable import/no-nodejs-modules */
 import test from "node:test";
 import assert from "node:assert/strict";
-import {normalizeSettings} from "./settings";
+import {getStatusDisplayClassName, normalizeSettings, normalizeStatusDisplay} from "./settings";
 
 void test("uses default relationship property names", () => {
 	const settings = normalizeSettings();
@@ -58,4 +58,23 @@ void test("allows relationship detail fields to be empty", () => {
 	});
 
 	assert.deepEqual(settings.relationshipDetailFields, []);
+});
+
+void test("normalizes status display setting and class names", () => {
+	assert.equal(normalizeSettings().statusDisplay, "colored-outline");
+	assert.equal(normalizeSettings({statusDisplay: "filled"}).statusDisplay, "filled");
+	assert.equal(normalizeSettings({statusDisplay: "unsupported" as never}).statusDisplay, "colored-outline");
+
+	assert.equal(normalizeStatusDisplay("text"), "text");
+	assert.equal(normalizeStatusDisplay("colored-text"), "colored-text");
+	assert.equal(normalizeStatusDisplay("outline"), "outline");
+	assert.equal(normalizeStatusDisplay("colored-outline"), "colored-outline");
+	assert.equal(normalizeStatusDisplay("filled"), "filled");
+	assert.equal(normalizeStatusDisplay(null), "colored-outline");
+
+	assert.equal(getStatusDisplayClassName("text"), "spv-status-badge spv-status-display-text");
+	assert.equal(getStatusDisplayClassName("colored-text"), "spv-status-badge spv-status-display-colored-text");
+	assert.equal(getStatusDisplayClassName("outline"), "spv-status-badge spv-status-display-outline");
+	assert.equal(getStatusDisplayClassName("colored-outline"), "spv-status-badge spv-status-display-colored-outline");
+	assert.equal(getStatusDisplayClassName("filled"), "spv-status-badge spv-status-display-filled");
 });
