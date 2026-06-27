@@ -268,6 +268,11 @@ button.spv-settings-tab.is-active {
 	margin-top: var(--size-2-1);
 }
 
+.spv-relationship-details .spv-status-badge {
+	justify-self: start;
+	width: fit-content;
+}
+
 button.spv-create-child-project {
 	align-items: center;
 	display: inline-flex;
