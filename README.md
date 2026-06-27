@@ -8,6 +8,7 @@ The plugin keeps your Markdown notes as the source of truth. It reads and writes
 
 - Configurable project matching by tag, note property, or folder path, with `#project` as the default.
 - Project note toolbar for project icon, status, and any configured project properties, with top, bottom, left, or right placement.
+- Pretty project links in Reading view and Live Preview, with configurable fields and project actions.
 - Arbitrary project properties with configurable note property names, value types, render modes, and optional label icons.
 - Create project command with configurable path and optional template file.
 - Custom Bases layouts:

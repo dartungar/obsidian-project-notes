@@ -13,6 +13,8 @@ import type {ProjectCreationValues} from "./project-template";
 import {DEFAULT_PROJECT_CREATION_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
 import type {SimpleProjectViewsSettings} from "./settings";
 import {CreateProjectModal} from "./ui/create-project-modal";
+import {createPrettyProjectLinkLivePreviewExtension} from "./ui/pretty-project-link-live-preview";
+import {registerPrettyProjectLinks} from "./ui/pretty-project-links";
 import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
 
 export default class SimpleProjectViewsPlugin extends Plugin {
@@ -26,10 +28,12 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 
 		this.projectIndex = new ProjectIndex(this.app, () => this.settings);
 		this.projectToolbar = new ProjectNoteToolbar(this);
+		this.registerEditorExtension(createPrettyProjectLinkLivePreviewExtension(this));
 
 		this.registerProjectBasesViews();
 		this.registerCommands();
 		this.registerProjectRefreshEvents();
+		registerPrettyProjectLinks(this);
 
 		this.addSettingTab(new SimpleProjectViewsSettingTab(this.app, this));
 
@@ -53,6 +57,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	refreshProjectSurfaces(): void {
 		this.projectToolbar.refreshAll();
 		this.refreshProjectBasesViews();
+		this.app.workspace.updateOptions();
 	}
 
 	openCreateChildProjectModal(parentFile: TFile): void {

@@ -1,7 +1,14 @@
 /* eslint-disable import/no-nodejs-modules */
 import test from "node:test";
 import assert from "node:assert/strict";
-import {getStatusDisplayClassName, normalizeSettings, normalizeStatusDisplay} from "./settings";
+import {
+	DEFAULT_SETTINGS,
+	getOrderedPrettyLinkFields,
+	getStatusDisplayClassName,
+	normalizePrettyLinkFields,
+	normalizeSettings,
+	normalizeStatusDisplay,
+} from "./settings";
 
 void test("uses default relationship property names", () => {
 	const settings = normalizeSettings();
@@ -77,4 +84,46 @@ void test("normalizes status display setting and class names", () => {
 	assert.equal(getStatusDisplayClassName("outline"), "spv-status-badge spv-status-display-outline");
 	assert.equal(getStatusDisplayClassName("colored-outline"), "spv-status-badge spv-status-display-colored-outline");
 	assert.equal(getStatusDisplayClassName("filled"), "spv-status-badge spv-status-display-filled");
+});
+
+void test("uses default pretty link settings", () => {
+	const settings = normalizeSettings();
+
+	assert.equal(settings.prettyLinksEnabled, true);
+	assert.deepEqual(settings.prettyLinkFields, ["status"]);
+	assert.deepEqual(DEFAULT_SETTINGS.prettyLinkFields, ["status"]);
+});
+
+void test("normalizes pretty link fields", () => {
+	const settings = normalizeSettings({
+		prettyLinkFields: [" due ", "", "status", "unknown", "due", "nextAction"],
+	});
+
+	assert.deepEqual(settings.prettyLinkFields, ["status", "due", "nextAction"]);
+	assert.deepEqual(normalizePrettyLinkFields(["status", "due", "due"]), ["status", "due"]);
+});
+
+void test("allows title-only pretty links", () => {
+	const settings = normalizeSettings({
+		prettyLinkFields: [],
+	});
+
+	assert.deepEqual(settings.prettyLinkFields, []);
+});
+
+void test("orders pretty link fields from current project properties", () => {
+	const settings = normalizeSettings({
+		prettyLinkFields: ["nextAction", "status", "due"],
+	});
+
+	assert.deepEqual(getOrderedPrettyLinkFields(settings, new Set(settings.prettyLinkFields)), [
+		"status",
+		"due",
+		"nextAction",
+	]);
+});
+
+void test("normalizes pretty links enabled", () => {
+	assert.equal(normalizeSettings({prettyLinksEnabled: false}).prettyLinksEnabled, false);
+	assert.equal(normalizeSettings({prettyLinksEnabled: "false" as never}).prettyLinksEnabled, true);
 });

@@ -3,7 +3,8 @@
 .spv-bases-row,
 .spv-board-card,
 .spv-board-column,
-.spv-control-field {
+.spv-control-field,
+.spv-pretty-project-link {
 	box-sizing: border-box;
 }
 
@@ -190,6 +191,61 @@ button.spv-settings-tab.is-active {
 	flex-wrap: wrap;
 	gap: var(--size-2-3) var(--size-4-2);
 	min-width: 0;
+}
+
+.spv-pretty-project-link {
+	align-items: baseline;
+	background: var(--background-secondary);
+	border: var(--border-width, 1px) solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	cursor: pointer;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0 var(--size-2-2);
+	line-height: var(--line-height-tight);
+	margin-inline: 1px;
+	max-width: 100%;
+	padding: 1px var(--size-2-2);
+	text-decoration: none;
+	vertical-align: baseline;
+}
+
+.spv-pretty-project-link:hover,
+.spv-pretty-project-link:focus-visible {
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+	outline: none;
+}
+
+.spv-pretty-project-link-title {
+	align-items: center;
+	display: inline-flex;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.spv-pretty-project-link-label {
+	font-weight: var(--font-medium);
+	overflow-wrap: anywhere;
+}
+
+.spv-pretty-project-link-fields.spv-project-summary-fields {
+	align-items: center;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1) var(--size-2-2);
+	margin: 0;
+	width: auto;
+}
+
+.spv-pretty-project-link-fields .spv-summary-item {
+	display: inline-flex;
+	gap: var(--size-2-1);
+}
+
+.spv-pretty-project-link-fields .spv-summary-progress {
+	min-width: 5rem;
 }
 
 .spv-list-edit-controls {

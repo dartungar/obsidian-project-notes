@@ -82,6 +82,8 @@ const settings: SimpleProjectViewsSettings = {
 	statusDisplay: "colored-outline",
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
+	prettyLinksEnabled: true,
+	prettyLinkFields: ["status"],
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
 	projectCreationTemplatePath: "",
 	baseFilePath: "Project views.base",

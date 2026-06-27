@@ -25,7 +25,7 @@ import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 export type ProjectMatchType = "tag" | "property" | "folder";
 export type ProjectToolbarPosition = "top" | "bottom" | "left" | "right";
 export type StatusDisplayMode = "text" | "colored-text" | "outline" | "colored-outline" | "filled";
-type SettingsTabId = "general" | "views" | "noteBar" | "relationships" | "statuses" | "properties";
+type SettingsTabId = "general" | "views" | "noteBar" | "prettyLinks" | "relationships" | "statuses" | "properties";
 
 export interface ProjectPropertyNames {
 	icon: string;
@@ -65,6 +65,8 @@ export interface SimpleProjectViewsSettings {
 	statusDisplay: StatusDisplayMode;
 	showProjectToolbar: boolean;
 	noteToolbarPosition: ProjectToolbarPosition;
+	prettyLinksEnabled: boolean;
+	prettyLinkFields: string[];
 	projectCreationPathTemplate: string;
 	projectCreationTemplatePath: string;
 	baseFilePath: string;
@@ -136,6 +138,8 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	statusDisplay: "colored-outline",
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
+	prettyLinksEnabled: true,
+	prettyLinkFields: ["status"],
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
 	projectCreationTemplatePath: "",
 	baseFilePath: "Project views.base",
@@ -158,6 +162,7 @@ const TAB_LABELS: Record<SettingsTabId, string> = {
 	general: "General",
 	views: "Views",
 	noteBar: "Note bar",
+	prettyLinks: "Pretty links",
 	relationships: "Relationships",
 	statuses: "Statuses",
 	properties: "Properties",
@@ -183,6 +188,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		? normalizeProjectPropertyDefinitions(settings.projectProperties)
 		: migrateLegacyProjectProperties(propertyNames, enabledProperties);
 	const statusOptions = normalizeStatusOptions(settings.statusOptions);
+	const prettyLinkFields = normalizePrettyLinkFields(settings.prettyLinkFields, projectProperties);
 
 	return {
 		...DEFAULT_SETTINGS,
@@ -196,6 +202,8 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		statusOptions,
 		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
 		statusDisplay: normalizeStatusDisplay(settings.statusDisplay),
+		prettyLinksEnabled: readBoolean(settings.prettyLinksEnabled, DEFAULT_SETTINGS.prettyLinksEnabled),
+		prettyLinkFields,
 		projectMatchType: normalizeProjectMatchType(settings.projectMatchType),
 		projectTag: typeof settings.projectTag === "string" ? normalizeProjectTag(settings.projectTag) : DEFAULT_SETTINGS.projectTag,
 		projectPropertyName: typeof settings.projectPropertyName === "string" ? settings.projectPropertyName.trim() : DEFAULT_SETTINGS.projectPropertyName,
@@ -231,6 +239,39 @@ export function normalizeStatusDisplay(value: unknown): StatusDisplayMode {
 	return typeof value === "string" && STATUS_DISPLAY_MODES.includes(value as StatusDisplayMode)
 		? value as StatusDisplayMode
 		: DEFAULT_SETTINGS.statusDisplay;
+}
+
+export function normalizePrettyLinkFields(
+	value: unknown,
+	projectProperties = DEFAULT_SETTINGS.projectProperties,
+): string[] {
+	if (!Array.isArray(value)) {
+		return [...DEFAULT_SETTINGS.prettyLinkFields];
+	}
+
+	const allowedFields = new Set([
+		"status",
+		...projectProperties
+			.filter((property) => property.name.trim().length > 0)
+			.map((property) => property.id),
+	]);
+	const requestedFields = new Set(normalizeStringList(value).filter((field) => allowedFields.has(field)));
+
+	return getOrderedPrettyLinkFields({projectProperties}, requestedFields);
+}
+
+export function getOrderedPrettyLinkFields(
+	settings: Pick<SimpleProjectViewsSettings, "projectProperties">,
+	fields: Set<string>,
+): string[] {
+	const orderedFields = [
+		"status",
+		...settings.projectProperties
+			.filter((property) => property.name.trim().length > 0)
+			.map((property) => property.id),
+	];
+
+	return orderedFields.filter((field) => fields.has(field));
 }
 
 export function getStatusDisplayClassName(mode: StatusDisplayMode): string {
@@ -436,6 +477,8 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			this.displayViews(containerEl);
 		} else if (this.activeTab === "noteBar") {
 			this.displayNoteBar(containerEl);
+		} else if (this.activeTab === "prettyLinks") {
+			this.displayPrettyLinks(containerEl);
 		} else if (this.activeTab === "relationships") {
 			this.displayRelationships(containerEl);
 		} else if (this.activeTab === "statuses") {
@@ -706,6 +749,59 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				});
+	}
+
+	private displayPrettyLinks(containerEl: HTMLElement): void {
+		this.addHeading(containerEl, "Pretty links");
+
+		new Setting(containerEl)
+			.setName("Enable pretty links")
+			.setDesc("Render links to project notes as compact project links.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.prettyLinksEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.prettyLinksEnabled = value;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
+
+		this.addHeading(containerEl, "Fields");
+		this.addPrettyLinkFieldSetting(containerEl, "status", "Status");
+		for (const property of this.plugin.settings.projectProperties) {
+			if (property.name.trim()) {
+				this.addPrettyLinkFieldSetting(containerEl, property.id, property.label || property.name);
+			}
+		}
+	}
+
+	private addPrettyLinkFieldSetting(containerEl: HTMLElement, field: string, label: string): void {
+		const enabledFields = new Set(this.plugin.settings.prettyLinkFields);
+
+		new Setting(containerEl)
+			.setName(label)
+			.setDesc("Show this field on pretty project links.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(enabledFields.has(field))
+					.setDisabled(!this.plugin.settings.prettyLinksEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.prettyLinkFields = this.getPrettyLinkFields(field, value);
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private getPrettyLinkFields(field: string, enabled: boolean): string[] {
+		const fields = new Set(this.plugin.settings.prettyLinkFields);
+		if (enabled) {
+			fields.add(field);
+		} else {
+			fields.delete(field);
+		}
+
+		return getOrderedPrettyLinkFields(this.plugin.settings, fields);
 	}
 
 	private displayRelationships(containerEl: HTMLElement): void {
