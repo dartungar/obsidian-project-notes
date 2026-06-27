@@ -55,6 +55,20 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.refreshProjectBasesViews();
 	}
 
+	openCreateChildProjectModal(parentFile: TFile): void {
+		if (!this.projectIndex.getProject(parentFile)) {
+			new Notice("Open a project note to create a child project");
+			return;
+		}
+
+		new CreateProjectModal(this, {
+			title: "Create child project",
+			submitLabel: "Create child",
+			errorMessage: "Could not create child project",
+			createProject: (values) => this.createChildProject(parentFile, values),
+		}).open();
+	}
+
 	registerProjectBasesView(view: ProjectBasesView): void {
 		this.projectBasesViews.add(view);
 	}
@@ -102,12 +116,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 				}
 
 				if (!checking) {
-					new CreateProjectModal(this, {
-						title: "Create child project",
-						submitLabel: "Create child",
-						errorMessage: "Could not create child project",
-						createProject: (values) => this.createChildProject(parentFile, values),
-					}).open();
+					this.openCreateChildProjectModal(parentFile);
 				}
 
 				return true;

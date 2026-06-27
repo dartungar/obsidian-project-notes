@@ -1,6 +1,7 @@
 import {MarkdownView} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import {renderProjectControls} from "./project-controls";
+import {renderProjectRelationships} from "./project-relationship-controls";
 
 const TOOLBAR_CLASS = "spv-project-note-toolbar";
 
@@ -52,6 +53,7 @@ export class ProjectNoteToolbar {
 			controlClass: "spv-note-bar-controls",
 			afterUpdate: () => this.plugin.refreshProjectSurfaces(),
 		});
+		renderProjectRelationships(toolbarEl, this.plugin, project);
 	}
 
 	private getToolbarTarget(view: MarkdownView): HTMLElement {

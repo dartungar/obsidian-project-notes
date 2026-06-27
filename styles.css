@@ -216,6 +216,47 @@ button.spv-settings-tab.is-active {
 	width: 100%;
 }
 
+.spv-project-relationships {
+	border-top: var(--border-width, 1px) solid var(--background-modifier-border);
+	display: grid;
+	gap: var(--size-2-2);
+	margin-top: var(--size-2-3);
+	padding-top: var(--size-2-3);
+}
+
+.spv-relationship-row,
+.spv-relationship-group {
+	display: grid;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.spv-relationship-label {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	line-height: var(--line-height-tight);
+}
+
+.spv-relationship-list {
+	display: grid;
+	gap: var(--size-2-1);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.spv-relationship-link {
+	max-width: 100%;
+}
+
+button.spv-create-child-project {
+	align-items: center;
+	display: inline-flex;
+	gap: var(--size-2-1);
+	justify-content: flex-start;
+	width: fit-content;
+}
+
 .spv-project-controls-compact,
 .spv-board-card-fields,
 .spv-board-card-readonly-fields,
