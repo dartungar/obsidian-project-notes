@@ -66,6 +66,7 @@ export interface SimpleProjectViewsSettings {
 	showProjectToolbar: boolean;
 	noteToolbarPosition: ProjectToolbarPosition;
 	prettyLinksEnabled: boolean;
+	prettyLinkShowPropertyNames: boolean;
 	prettyLinkFields: string[];
 	projectCreationPathTemplate: string;
 	projectCreationTemplatePath: string;
@@ -139,6 +140,7 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	prettyLinksEnabled: true,
+	prettyLinkShowPropertyNames: true,
 	prettyLinkFields: ["status"],
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
 	projectCreationTemplatePath: "",
@@ -203,6 +205,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
 		statusDisplay: normalizeStatusDisplay(settings.statusDisplay),
 		prettyLinksEnabled: readBoolean(settings.prettyLinksEnabled, DEFAULT_SETTINGS.prettyLinksEnabled),
+		prettyLinkShowPropertyNames: readBoolean(settings.prettyLinkShowPropertyNames, DEFAULT_SETTINGS.prettyLinkShowPropertyNames),
 		prettyLinkFields,
 		projectMatchType: normalizeProjectMatchType(settings.projectMatchType),
 		projectTag: typeof settings.projectTag === "string" ? normalizeProjectTag(settings.projectTag) : DEFAULT_SETTINGS.projectTag,
@@ -764,6 +767,19 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						this.plugin.settings.prettyLinksEnabled = value;
 						await this.plugin.saveSettings();
 						this.display();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Show property names")
+			.setDesc("Show property labels before values on pretty links.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.prettyLinkShowPropertyNames)
+					.setDisabled(!this.plugin.settings.prettyLinksEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.prettyLinkShowPropertyNames = value;
+						await this.plugin.saveSettings();
 					});
 			});
 

@@ -4,4 +4,6 @@ import "./project-frontmatter.test";
 import "./settings.test";
 import "./project-relationships.test";
 import "./ui/pretty-project-link-fields.test";
+import "./ui/pretty-project-link-live-preview.test";
 import "./ui/pretty-project-link-renderer.test";
+import "./ui/project-link-menu.test";

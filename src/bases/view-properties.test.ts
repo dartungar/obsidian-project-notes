@@ -83,6 +83,7 @@ const settings: SimpleProjectViewsSettings = {
 	showProjectToolbar: true,
 	noteToolbarPosition: "top",
 	prettyLinksEnabled: true,
+	prettyLinkShowPropertyNames: true,
 	prettyLinkFields: ["status"],
 	projectCreationPathTemplate: "Projects/{{safe_title}}.md",
 	projectCreationTemplatePath: "",

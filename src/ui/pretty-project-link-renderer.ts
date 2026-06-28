@@ -14,6 +14,39 @@ export interface PrettyProjectLinkData {
 	label: string;
 }
 
+export interface PrettyProjectLinkAttributes {
+	sourcePath: string;
+	linktext: string;
+	label: string;
+}
+
+const LINKTEXT_ATTR = "data-href";
+const SOURCE_PATH_ATTR = "data-spv-source-path";
+const LINK_LABEL_ATTR = "data-spv-link-label";
+
+export function getPrettyProjectLinkAttributes(data: PrettyProjectLinkData): Record<string, string> {
+	return {
+		[LINKTEXT_ATTR]: data.linktext,
+		[SOURCE_PATH_ATTR]: data.sourcePath,
+		[LINK_LABEL_ATTR]: data.label,
+		"data-spv-project-path": data.file.path,
+	};
+}
+
+export function readPrettyProjectLinkAttributes(linkEl: HTMLElement): PrettyProjectLinkAttributes | null {
+	const sourcePath = linkEl.getAttribute(SOURCE_PATH_ATTR) ?? "";
+	const linktext = linkEl.getAttribute(LINKTEXT_ATTR) ?? "";
+	if (!sourcePath || !linktext) {
+		return null;
+	}
+
+	return {
+		sourcePath,
+		linktext,
+		label: linkEl.getAttribute(LINK_LABEL_ATTR) ?? "",
+	};
+}
+
 export function resolvePrettyProjectLink(
 	plugin: SimpleProjectViewsPlugin,
 	linktext: string,
@@ -52,14 +85,14 @@ export function renderPrettyProjectLink(
 	containerEl: HTMLElement,
 	plugin: SimpleProjectViewsPlugin,
 	data: PrettyProjectLinkData,
+	extraClass = "",
 ): HTMLElement {
 	const linkEl = containerEl.createEl("span", {
-		cls: "spv-pretty-project-link",
+		cls: `spv-pretty-project-link${extraClass ? ` ${extraClass}` : ""}`,
 		attr: {
 			role: "link",
 			tabindex: "0",
-			"data-href": data.linktext,
-			"data-spv-project-path": data.file.path,
+			...getPrettyProjectLinkAttributes(data),
 		},
 	});
 
@@ -80,9 +113,11 @@ export function renderPrettyProjectLink(
 			controlClass: "spv-pretty-project-link-fields",
 			fields,
 			readOnly: true,
+			showLabels: plugin.settings.prettyLinkShowPropertyNames,
 		});
 	}
 
+	linkEl.addEventListener("mousedown", handlePrettyProjectLinkMouseDown);
 	linkEl.addEventListener("click", (event) => {
 		if (event.defaultPrevented) {
 			return;
@@ -104,4 +139,31 @@ export function renderPrettyProjectLink(
 	});
 
 	return linkEl;
+}
+
+export function handlePrettyProjectLinkMouseDown(event: MouseEvent): void {
+	event.preventDefault();
+	event.stopPropagation();
+}
+
+export function refreshRenderedPrettyProjectLink(
+	linkEl: HTMLElement,
+	plugin: SimpleProjectViewsPlugin,
+	extraClass = "",
+): HTMLElement | null {
+	const attributes = readPrettyProjectLinkAttributes(linkEl);
+	if (!attributes) {
+		return null;
+	}
+
+	const data = resolvePrettyProjectLink(plugin, attributes.linktext, attributes.sourcePath, attributes.label);
+	if (!data) {
+		return null;
+	}
+
+	const wrapperEl = linkEl.ownerDocument.createElement("span");
+	const refreshedEl = renderPrettyProjectLink(wrapperEl, plugin, data, extraClass);
+	linkEl.replaceWith(refreshedEl);
+
+	return refreshedEl;
 }

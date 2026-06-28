@@ -1,4 +1,4 @@
-import {RangeSetBuilder} from "@codemirror/state";
+import {RangeSetBuilder, StateEffect} from "@codemirror/state";
 import type {Extension} from "@codemirror/state";
 import {Decoration, EditorView, ViewPlugin, WidgetType} from "@codemirror/view";
 import type {DecorationSet, ViewUpdate} from "@codemirror/view";
@@ -9,22 +9,52 @@ import {renderPrettyProjectLink, resolvePrettyProjectLink} from "./pretty-projec
 import type {PrettyProjectLinkData} from "./pretty-project-link-renderer";
 
 const WIKI_LINK_REGEX = /!?\[\[([^\]\n]+)\]\]/g;
+const prettyProjectLinkRefreshEffect = StateEffect.define<void>();
+const livePreviewViews = new Set<EditorView>();
+
+export function trackPrettyProjectLinkLivePreviewView(view: EditorView): void {
+	livePreviewViews.add(view);
+}
+
+export function untrackPrettyProjectLinkLivePreviewView(view: EditorView): void {
+	livePreviewViews.delete(view);
+}
+
+export function refreshPrettyProjectLinkLivePreviewEditors(): void {
+	for (const view of livePreviewViews) {
+		view.dispatch({
+			effects: prettyProjectLinkRefreshEffect.of(),
+		});
+	}
+}
+
+export function hasPrettyProjectLinkRefreshEffect(update: ViewUpdate): boolean {
+	return update.transactions.some((transaction) => {
+		return transaction.effects.some((effect) => effect.is(prettyProjectLinkRefreshEffect));
+	});
+}
 
 export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjectViewsPlugin): Extension {
 	return ViewPlugin.fromClass(class {
 		decorations: DecorationSet;
 
 		constructor(private readonly view: EditorView) {
+			trackPrettyProjectLinkLivePreviewView(view);
 			this.decorations = this.buildDecorations();
 		}
 
 		update(update: ViewUpdate): void {
-			if (update.docChanged || update.viewportChanged || update.selectionSet) {
-				this.decorations = this.buildDecorations();
+			const isPrettyLinkRefresh = hasPrettyProjectLinkRefreshEffect(update);
+			if (update.docChanged || update.viewportChanged || update.selectionSet || isPrettyLinkRefresh) {
+				this.decorations = this.buildDecorations({renderSelectedLinks: isPrettyLinkRefresh});
 			}
 		}
 
-		private buildDecorations(): DecorationSet {
+		destroy(): void {
+			untrackPrettyProjectLinkLivePreviewView(this.view);
+		}
+
+		private buildDecorations(options: {renderSelectedLinks: boolean} = {renderSelectedLinks: false}): DecorationSet {
 			if (!plugin.settings.prettyLinksEnabled || !this.view.state.field(editorLivePreviewField, false)) {
 				return Decoration.none;
 			}
@@ -47,7 +77,7 @@ export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjec
 
 					const from = range.from + match.index;
 					const to = from + matchedText.length;
-					if (selectionIntersects(this.view, from, to)) {
+					if (!shouldRenderPrettyProjectLinkRange(this.view, from, to, options.renderSelectedLinks)) {
 						continue;
 					}
 
@@ -70,6 +100,19 @@ export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjec
 	}, {
 		decorations: (value) => value.decorations,
 	});
+}
+
+export function shouldRenderPrettyProjectLinkRange(
+	view: EditorView,
+	from: number,
+	to: number,
+	renderSelectedLinks: boolean,
+): boolean {
+	return renderSelectedLinks || !selectionIntersects(view, from, to);
+}
+
+export function shouldIgnorePrettyProjectLinkWidgetEvent(_event: Event): boolean {
+	return true;
 }
 
 class PrettyProjectLinkWidget extends WidgetType {
@@ -95,8 +138,8 @@ class PrettyProjectLinkWidget extends WidgetType {
 			&& this.signature === other.signature;
 	}
 
-	ignoreEvent(_event: Event): boolean {
-		return false;
+	ignoreEvent(event: Event): boolean {
+		return shouldIgnorePrettyProjectLinkWidgetEvent(event);
 	}
 }
 
@@ -115,7 +158,7 @@ function splitLinkAlias(value: string): [string, string] {
 }
 
 function selectionIntersects(view: EditorView, from: number, to: number): boolean {
-	return view.state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+	return view.state.selection.ranges.some((range) => range.from < to && range.to > from);
 }
 
 function getProjectSignature(project: ProjectInfo, fields: string[]): string {

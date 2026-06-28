@@ -13,8 +13,11 @@ import type {ProjectCreationValues} from "./project-template";
 import {DEFAULT_PROJECT_CREATION_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings, SimpleProjectViewsSettingTab} from "./settings";
 import type {SimpleProjectViewsSettings} from "./settings";
 import {CreateProjectModal} from "./ui/create-project-modal";
-import {createPrettyProjectLinkLivePreviewExtension} from "./ui/pretty-project-link-live-preview";
-import {registerPrettyProjectLinks} from "./ui/pretty-project-links";
+import {
+	createPrettyProjectLinkLivePreviewExtension,
+	refreshPrettyProjectLinkLivePreviewEditors,
+} from "./ui/pretty-project-link-live-preview";
+import {refreshPrettyProjectLinksInReadingView, registerPrettyProjectLinks} from "./ui/pretty-project-links";
 import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
 
 export default class SimpleProjectViewsPlugin extends Plugin {
@@ -57,6 +60,8 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	refreshProjectSurfaces(): void {
 		this.projectToolbar.refreshAll();
 		this.refreshProjectBasesViews();
+		refreshPrettyProjectLinksInReadingView(this);
+		refreshPrettyProjectLinkLivePreviewEditors();
 		this.app.workspace.updateOptions();
 	}
 

@@ -181,6 +181,9 @@ export interface CachedMetadata {
 	frontmatter?: Record<string, unknown>;
 }
 
+export const editorInfoField = {};
+export const editorLivePreviewField = {};
+
 export function getAllTags(_cache: CachedMetadata): string[] {
 	return [];
 }

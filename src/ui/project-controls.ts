@@ -24,6 +24,7 @@ export interface ProjectControlsOptions {
 	controlClass?: string;
 	focusField?: ProjectControlField;
 	labels?: Partial<Record<ProjectControlField, string>>;
+	showLabels?: boolean;
 	readOnly?: boolean;
 	readOnlyProgress?: boolean;
 	afterUpdate?: () => void;
@@ -149,10 +150,11 @@ function renderProjectSummary(
 		.filter(Boolean)
 		.join(" ");
 	const summaryEl = containerEl.createDiv({cls: classes});
+	const showLabels = options.showLabels !== false;
 
 	for (const field of fields) {
 		if (field === "status") {
-			createStatusSummaryItem(summaryEl, settings, project.status, options.labels?.status ?? "Status");
+			createStatusSummaryItem(summaryEl, settings, project.status, options.labels?.status ?? "Status", showLabels);
 			continue;
 		}
 
@@ -161,7 +163,7 @@ function renderProjectSummary(
 			continue;
 		}
 
-		createPropertySummaryItem(summaryEl, property, options.labels?.[field] ?? property.definition.label);
+		createPropertySummaryItem(summaryEl, property, options.labels?.[field] ?? property.definition.label, showLabels);
 	}
 
 	if (summaryEl.childElementCount === 0) {
@@ -174,9 +176,12 @@ function createStatusSummaryItem(
 	settings: SimpleProjectViewsSettings,
 	status: string,
 	label: string,
+	showLabel: boolean,
 ): void {
 	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-status"});
-	itemEl.createSpan({cls: "spv-summary-label", text: label});
+	if (showLabel) {
+		itemEl.createSpan({cls: "spv-summary-label", text: label});
+	}
 	const badgeEl = itemEl.createSpan({
 		cls: getStatusDisplayClassName(settings.statusDisplay),
 		text: status || "No status",
@@ -188,29 +193,33 @@ function createPropertySummaryItem(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
+	showLabel: boolean,
 ): void {
 	if (property.definition.render === "progress") {
-		createProgressSummaryItem(containerEl, property, label);
+		createProgressSummaryItem(containerEl, property, label, showLabel);
 		return;
 	}
 
 	if (property.definition.render === "stars") {
-		createStarsSummaryItem(containerEl, property, label);
+		createStarsSummaryItem(containerEl, property, label, showLabel);
 		return;
 	}
 
-	createScalarSummaryItem(containerEl, property, label);
+	createScalarSummaryItem(containerEl, property, label, showLabel);
 }
 
 function createProgressSummaryItem(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
+	showLabel: boolean,
 ): void {
 	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-progress"});
-	addPropertySummaryLabelClass(itemEl, property);
+	if (showLabel) {
+		addPropertySummaryLabelClass(itemEl, property);
+	}
 	itemEl.style.setProperty("--spv-progress", `${getProjectPropertyProgressPercent(property)}%`);
-	createPropertySummaryLabel(itemEl, property, label);
+	createPropertySummaryLabel(itemEl, property, label, showLabel);
 	const trackEl = itemEl.createSpan({cls: "spv-progress-track"});
 	trackEl.setAttribute("role", "progressbar");
 	trackEl.setAttribute("aria-label", label);
@@ -228,10 +237,13 @@ function createStarsSummaryItem(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
+	showLabel: boolean,
 ): void {
 	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-stars"});
-	addPropertySummaryLabelClass(itemEl, property);
-	createPropertySummaryLabel(itemEl, property, label);
+	if (showLabel) {
+		addPropertySummaryLabelClass(itemEl, property);
+	}
+	createPropertySummaryLabel(itemEl, property, label, showLabel);
 	const starsEl = itemEl.createSpan({
 		cls: "spv-summary-value spv-star-control spv-star-control-readonly",
 		attr: {"aria-label": `${label}: ${formatProjectPropertyValue(property)}`},
@@ -250,13 +262,16 @@ function createScalarSummaryItem(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
+	showLabel: boolean,
 ): void {
 	const isLongText = property.definition.render === "textarea";
 	const itemEl = containerEl.createDiv({
 		cls: `spv-summary-item${isLongText ? " spv-summary-textarea" : ""}`,
 	});
-	addPropertySummaryLabelClass(itemEl, property);
-	createPropertySummaryLabel(itemEl, property, label);
+	if (showLabel) {
+		addPropertySummaryLabelClass(itemEl, property);
+	}
+	createPropertySummaryLabel(itemEl, property, label, showLabel);
 	itemEl.createSpan({
 		cls: "spv-summary-value",
 		text: formatProjectPropertyValue(property),
@@ -267,7 +282,12 @@ function createPropertySummaryLabel(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
+	showLabel: boolean,
 ): void {
+	if (!showLabel) {
+		return;
+	}
+
 	if (property.definition.labelMode === "icon" && property.definition.icon) {
 		const labelEl = containerEl.createSpan({
 			cls: "spv-summary-label spv-summary-label-icon",

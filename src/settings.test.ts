@@ -91,7 +91,9 @@ void test("uses default pretty link settings", () => {
 
 	assert.equal(settings.prettyLinksEnabled, true);
 	assert.deepEqual(settings.prettyLinkFields, ["status"]);
+	assert.equal(settings.prettyLinkShowPropertyNames, true);
 	assert.deepEqual(DEFAULT_SETTINGS.prettyLinkFields, ["status"]);
+	assert.equal(DEFAULT_SETTINGS.prettyLinkShowPropertyNames, true);
 });
 
 void test("normalizes pretty link fields", () => {
@@ -126,4 +128,9 @@ void test("orders pretty link fields from current project properties", () => {
 void test("normalizes pretty links enabled", () => {
 	assert.equal(normalizeSettings({prettyLinksEnabled: false}).prettyLinksEnabled, false);
 	assert.equal(normalizeSettings({prettyLinksEnabled: "false" as never}).prettyLinksEnabled, true);
+});
+
+void test("normalizes pretty link property name visibility", () => {
+	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: false}).prettyLinkShowPropertyNames, false);
+	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: "false" as never}).prettyLinkShowPropertyNames, true);
 });

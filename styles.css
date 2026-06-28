@@ -194,7 +194,7 @@ button.spv-settings-tab.is-active {
 }
 
 .spv-pretty-project-link {
-	align-items: baseline;
+	align-items: center;
 	background: var(--background-secondary);
 	border: var(--border-width, 1px) solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
@@ -222,6 +222,7 @@ button.spv-settings-tab.is-active {
 	align-items: center;
 	display: inline-flex;
 	gap: var(--size-2-1);
+	line-height: 1;
 	min-width: 0;
 }
 
@@ -240,8 +241,15 @@ button.spv-settings-tab.is-active {
 }
 
 .spv-pretty-project-link-fields .spv-summary-item {
+	align-items: center;
 	display: inline-flex;
 	gap: var(--size-2-1);
+}
+
+.spv-pretty-project-link-fields .spv-summary-label,
+.spv-pretty-project-link-fields .spv-summary-value,
+.spv-pretty-project-link-fields .spv-status-badge {
+	line-height: 1;
 }
 
 .spv-pretty-project-link-fields .spv-summary-progress {
@@ -257,6 +265,19 @@ button.spv-settings-tab.is-active {
 .spv-note-bar-controls {
 	flex-wrap: wrap;
 	max-width: 100%;
+}
+
+.spv-note-actions-submenu-title {
+	align-items: center;
+	display: flex;
+	gap: var(--size-4-2);
+	justify-content: space-between;
+	width: 100%;
+}
+
+.spv-note-actions-submenu-arrow {
+	color: var(--text-muted);
+	margin-left: auto;
 }
 
 .spv-project-note-toolbar-left .spv-note-bar-controls,
