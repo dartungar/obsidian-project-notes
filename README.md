@@ -14,7 +14,7 @@ Your Markdown files stay the source of truth. The plugin reads and writes note p
 
 `<screenshot of pretty project links inside a note>`
 
-`<screenshot of Project Notes settings tabs>`
+`<screenshot of Project Notes settings tabs>` 
 
 ## How it works
 
