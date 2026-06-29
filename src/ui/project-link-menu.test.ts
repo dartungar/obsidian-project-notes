@@ -11,6 +11,8 @@ import {
 	waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate,
 } from "./project-link-menu";
 
+ensureWindowTimersForNodeTests();
+
 void test("does not refresh project surfaces before metadata cache settles", () => {
 	const calls: string[] = [];
 	const plugin = makePluginWithMetadataRefresh({
@@ -84,6 +86,64 @@ void test("refreshes project surfaces after edited project data is visible witho
 	status = "done";
 	await nextTick();
 	assert.deepEqual(calls, ["refresh"]);
+});
+
+void test("uses window timer APIs while waiting for metadata polling", () => {
+	const calls: string[] = [];
+	const file = makeFile("Projects/Apollo.md", "Apollo");
+	const previousWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+	const globalTimers = globalThis as unknown as {
+		clearTimeout: typeof clearTimeout;
+		setTimeout: typeof setTimeout;
+	};
+	const previousClearTimeout = globalTimers.clearTimeout;
+	const previousSetTimeout = globalTimers.setTimeout;
+	const timerId = 42;
+	const fakeWindowTimers: Pick<Window, "clearTimeout" | "setTimeout"> = {
+		clearTimeout: ((id?: number) => {
+			calls.push(`window.clearTimeout:${String(id)}`);
+		}) as Window["clearTimeout"],
+		setTimeout: ((_handler: TimerHandler, timeout?: number) => {
+			calls.push(`window.setTimeout:${String(timeout)}`);
+			return timerId;
+		}) as Window["setTimeout"],
+	};
+
+	try {
+		Object.defineProperty(globalThis, "window", {
+			configurable: true,
+			value: fakeWindowTimers,
+		});
+		globalTimers.clearTimeout = (() => {
+			throw new Error("Expected metadata polling to use window.clearTimeout");
+		}) as unknown as typeof clearTimeout;
+		globalTimers.setTimeout = (() => {
+			throw new Error("Expected metadata polling to use window.setTimeout");
+		}) as unknown as typeof setTimeout;
+
+		const plugin = makePluginWithMetadataRefresh({
+			onChanged: () => ({}),
+			refreshProjectSurfaces: () => {
+				calls.push("refresh");
+			},
+		});
+		const cancel = waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(plugin, file, "status", "done", {
+			maxPollAttempts: 3,
+			pollDelayMs: 75,
+		});
+
+		assert.deepEqual(calls, ["window.setTimeout:75"]);
+		cancel();
+		assert.deepEqual(calls, ["window.setTimeout:75", "window.clearTimeout:42"]);
+	} finally {
+		globalTimers.clearTimeout = previousClearTimeout;
+		globalTimers.setTimeout = previousSetTimeout;
+		if (previousWindowDescriptor) {
+			Object.defineProperty(globalThis, "window", previousWindowDescriptor);
+		} else {
+			delete (globalThis as Record<string, unknown>).window;
+		}
+	}
 });
 
 void test("adds note actions as an active root submenu trigger without populating native actions", () => {
@@ -195,6 +255,20 @@ function makeProject(file: TFile, status: string): ProjectInfo {
 
 function nextTick(): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function ensureWindowTimersForNodeTests(): void {
+	if (Object.getOwnPropertyDescriptor(globalThis, "window")) {
+		return;
+	}
+
+	Object.defineProperty(globalThis, "window", {
+		configurable: true,
+		value: {
+			clearTimeout: globalThis.clearTimeout,
+			setTimeout: globalThis.setTimeout,
+		},
+	});
 }
 
 interface RecordedMenuItem {

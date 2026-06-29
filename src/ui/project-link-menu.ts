@@ -222,7 +222,7 @@ export function waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
 	let isListening = true;
 	let isCancelled = false;
 	let hasTargetMetadataChanged = false;
-	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let timeoutId: number | null = null;
 	let pollAttempts = 0;
 	const eventRefs: EventRef[] = [];
 	const maxPollAttempts = options.maxPollAttempts ?? DEFAULT_METADATA_REFRESH_MAX_POLL_ATTEMPTS;
@@ -242,7 +242,7 @@ export function waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
 			return;
 		}
 
-		clearTimeout(timeoutId);
+		window.clearTimeout(timeoutId);
 		timeoutId = null;
 	};
 	const refreshAfterMetadataResolved = () => {
@@ -271,7 +271,7 @@ export function waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
 		}
 
 		pollAttempts += 1;
-		timeoutId = setTimeout(() => {
+		timeoutId = window.setTimeout(() => {
 			timeoutId = null;
 			checkOrScheduleRefresh();
 		}, pollDelayMs);

@@ -480,8 +480,7 @@ button.spv-create-child-project {
 .spv-summary-item {
 	align-items: baseline;
 	display: grid;
-	column-gap: var(--size-2-3);
-	row-gap: 1px;
+	gap: 1px var(--size-2-3);
 	grid-template-columns: max-content minmax(0, 1fr);
 	min-width: 0;
 }
@@ -523,7 +522,7 @@ button.spv-create-child-project {
 
 .spv-summary-progress {
 	align-items: center;
-	column-gap: var(--size-2-3);
+	gap: 1px var(--size-2-3);
 	grid-template-columns: max-content minmax(3rem, 1fr) max-content;
 }
 
@@ -560,8 +559,8 @@ button.spv-project-title-button {
 
 .spv-icon-picker {
 	align-items: center;
-	column-gap: var(--size-2-2);
 	display: grid;
+	gap: 0 var(--size-2-2);
 	grid-template-columns: minmax(0, 1fr) max-content;
 	min-width: 0;
 	width: 100%;
@@ -801,14 +800,11 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-board-colorful .spv-board-column {
-	background: var(--background-secondary);
 	background: color-mix(in srgb, var(--spv-status-color) 10%, var(--background-secondary));
-	border-color: var(--background-modifier-border);
 	border-color: color-mix(in srgb, var(--spv-status-color) 40%, var(--background-modifier-border));
 }
 
 .spv-board-colorful .spv-board-column-header {
-	background: var(--background-secondary);
 	background: color-mix(in srgb, var(--spv-status-color) 16%, transparent);
 	border-radius: var(--radius-s);
 	margin: calc(var(--spv-board-column-padding) * -1) calc(var(--spv-board-column-padding) * -1) 0;
@@ -816,7 +812,6 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-board-colorful .spv-board-column-count {
-	background: var(--background-modifier-hover);
 	background: color-mix(in srgb, var(--spv-status-color) 18%, var(--background-modifier-hover));
 	border-radius: 999px;
 	color: var(--text-normal);
@@ -826,9 +821,7 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-board-colorful .spv-board-card {
-	background: var(--background-primary);
 	background: color-mix(in srgb, var(--spv-status-color) 5%, var(--background-primary));
-	border-color: var(--background-modifier-border);
 	border-color: color-mix(in srgb, var(--spv-status-color) 34%, var(--background-modifier-border));
 }
 
@@ -1092,8 +1085,14 @@ button.spv-table-header-button:focus-visible {
 
 body.spv-table-column-resizing,
 body.spv-table-column-resizing * {
-	cursor: col-resize !important;
 	user-select: none;
+}
+
+body.spv-table-column-resizing,
+body.spv-table-column-resizing button.spv-table-header-button,
+body.spv-table-column-resizing .spv-table-progress-cell.is-readonly,
+body.spv-table-column-resizing .spv-table-resize-handle {
+	cursor: col-resize;
 }
 
 .spv-project-table tbody tr:hover {
