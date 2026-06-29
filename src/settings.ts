@@ -14,6 +14,7 @@ import {
 	getPropertyRenderModeLabel,
 	getPropertyTypeLabel,
 	getPropertyTypes,
+	LEGACY_PROJECT_PROPERTIES,
 	normalizeProjectPropertyDefinitions,
 	normalizePropertyLabelMode,
 	normalizePropertyRenderMode,
@@ -187,9 +188,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 	const relationshipPropertyNames = normalizeProjectRelationshipPropertyNames(savedSettings.relationshipPropertyNames);
 	const relationshipDetailFields = normalizeRelationshipDetailFields(savedSettings.relationshipDetailFields);
 	const enabledProperties = normalizeProjectPropertyToggles(savedSettings.enabledProperties);
-	const projectProperties = Array.isArray(savedSettings.projectProperties)
-		? normalizeProjectPropertyDefinitions(savedSettings.projectProperties)
-		: migrateLegacyProjectProperties(propertyNames, enabledProperties);
+	const projectProperties = normalizeSavedProjectProperties(savedSettings, propertyNames, enabledProperties);
 	const statusOptions = normalizeStatusOptions(savedSettings.statusOptions);
 	const prettyLinkFields = normalizePrettyLinkFields(savedSettings.prettyLinkFields, projectProperties);
 
@@ -224,6 +223,22 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		boardCardOrder: normalizeStringList(savedSettings.boardCardOrder),
 		collapsedBoardColumns: normalizeStringList(savedSettings.collapsedBoardColumns),
 	};
+}
+
+function normalizeSavedProjectProperties(
+	savedSettings: Partial<SimpleProjectViewsSettings>,
+	propertyNames: ProjectPropertyNames,
+	enabledProperties: ProjectPropertyToggles,
+): ProjectPropertyDefinition[] {
+	if (Array.isArray(savedSettings.projectProperties)) {
+		return normalizeProjectPropertyDefinitions(savedSettings.projectProperties);
+	}
+
+	if (hasLegacyProjectPropertySettings(savedSettings)) {
+		return migrateLegacyProjectProperties(propertyNames, enabledProperties);
+	}
+
+	return cloneProjectProperties(DEFAULT_PROJECT_PROPERTIES);
 }
 
 export function normalizeBoardColumnWidth(value: unknown): number {
@@ -301,7 +316,7 @@ function migrateLegacyProjectProperties(
 	propertyNames: ProjectPropertyNames,
 	enabledProperties: ProjectPropertyToggles,
 ): ProjectPropertyDefinition[] {
-	return DEFAULT_PROJECT_PROPERTIES
+	return LEGACY_PROJECT_PROPERTIES
 		.filter((property) => {
 			const key = property.id as ToggleableProjectPropertyKey;
 			return enabledProperties[key] !== false;
@@ -313,6 +328,10 @@ function migrateLegacyProjectProperties(
 				name: propertyNames[key] ?? property.name,
 			};
 		});
+}
+
+function hasLegacyProjectPropertySettings(settings: Partial<SimpleProjectViewsSettings>): boolean {
+	return settings.propertyNames !== undefined || settings.enabledProperties !== undefined;
 }
 
 export function normalizeProjectMatchType(value: unknown): ProjectMatchType {

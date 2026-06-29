@@ -49,6 +49,10 @@ export const DEFAULT_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		max: 100,
 		step: 5,
 	},
+];
+
+export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
+	...DEFAULT_PROJECT_PROPERTIES,
 	{
 		id: "delegatedTo",
 		name: "delegated_to",

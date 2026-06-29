@@ -7,21 +7,21 @@ import {getPrettyLinkVisibleFields} from "./pretty-project-link-fields";
 
 void test("selects status and non-empty configured properties", () => {
 	const settings = normalizeSettings({
-		prettyLinkFields: ["status", "due", "nextAction"],
+		prettyLinkFields: ["status", "due", "progress"],
 	});
 	const project = makeProject({
 		status: "in-progress",
 		properties: [
 			{
-				definition: settings.projectProperties.find((property) => property.id === "due")!,
-				raw: "2026-07-01",
-				value: "2026-07-01",
+				definition: settings.projectProperties.find((property) => property.id === "progress")!,
+				raw: "",
+				value: "",
 				numberValue: null,
 			},
 			{
-				definition: settings.projectProperties.find((property) => property.id === "nextAction")!,
-				raw: "",
-				value: "",
+				definition: settings.projectProperties.find((property) => property.id === "due")!,
+				raw: "2026-07-01",
+				value: "2026-07-01",
 				numberValue: null,
 			},
 		],

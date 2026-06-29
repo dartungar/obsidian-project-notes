@@ -21,6 +21,12 @@ void test("uses default relationship property names", () => {
 	assert.deepEqual(settings.relationshipDetailFields, ["status"]);
 });
 
+void test("uses status, progress, and due as the default project fields", () => {
+	const settings = normalizeSettings();
+
+	assert.deepEqual(settings.projectProperties.map((property) => property.id), ["progress", "due"]);
+});
+
 void test("uses defaults when saved plugin data is null", () => {
 	const settings = normalizeSettings(null);
 
@@ -108,8 +114,16 @@ void test("normalizes pretty link fields", () => {
 	const settings = normalizeSettings({
 		prettyLinkFields: [" due ", "", "status", "unknown", "due", "nextAction"],
 	});
+	const customSettings = normalizeSettings({
+		projectProperties: [
+			...DEFAULT_SETTINGS.projectProperties,
+			makeTextProperty("priority", "priority", "Priority"),
+		],
+		prettyLinkFields: [" due ", "", "status", "unknown", "due", "priority"],
+	});
 
-	assert.deepEqual(settings.prettyLinkFields, ["status", "due", "nextAction"]);
+	assert.deepEqual(settings.prettyLinkFields, ["status", "due"]);
+	assert.deepEqual(customSettings.prettyLinkFields, ["status", "due", "priority"]);
 	assert.deepEqual(normalizePrettyLinkFields(["status", "due", "due"]), ["status", "due"]);
 });
 
@@ -123,15 +137,34 @@ void test("allows title-only pretty links", () => {
 
 void test("orders pretty link fields from current project properties", () => {
 	const settings = normalizeSettings({
-		prettyLinkFields: ["nextAction", "status", "due"],
+		projectProperties: [
+			...DEFAULT_SETTINGS.projectProperties,
+			makeTextProperty("priority", "priority", "Priority"),
+		],
+		prettyLinkFields: ["priority", "status", "due"],
 	});
 
 	assert.deepEqual(getOrderedPrettyLinkFields(settings, new Set(settings.prettyLinkFields)), [
 		"status",
 		"due",
-		"nextAction",
+		"priority",
 	]);
 });
+
+function makeTextProperty(id: string, name: string, label: string) {
+	return {
+		id,
+		name,
+		label,
+		type: "text" as const,
+		render: "text" as const,
+		icon: "",
+		labelMode: "name" as const,
+		min: 0,
+		max: 100,
+		step: 5,
+	};
+}
 
 void test("normalizes pretty links enabled", () => {
 	assert.equal(normalizeSettings({prettyLinksEnabled: false}).prettyLinksEnabled, false);

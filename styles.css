@@ -419,6 +419,10 @@ button.spv-create-child-project {
 	min-width: 8rem;
 }
 
+.spv-control-icon {
+	flex: 1 1 12rem;
+}
+
 .spv-control-status select,
 .spv-table-controls .spv-control-status select {
 	border-color: var(--spv-status-color, var(--background-modifier-border));
@@ -545,7 +549,6 @@ button.spv-create-child-project {
 }
 
 .spv-icon-readonly-value,
-.spv-icon-picker,
 .spv-icon-suggestion,
 .spv-star-control,
 button.spv-project-title-button {
@@ -555,8 +558,18 @@ button.spv-project-title-button {
 	min-width: 0;
 }
 
+.spv-icon-picker {
+	align-items: center;
+	column-gap: var(--size-2-2);
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) max-content;
+	min-width: 0;
+	width: 100%;
+}
+
 button.spv-icon-picker-button {
 	justify-content: flex-start;
+	padding-inline: var(--size-2-2);
 }
 
 .spv-icon-picker-label,
@@ -574,6 +587,11 @@ button.spv-icon-picker-button {
 .spv-board-column-toggle,
 .spv-board-column-drag-handle {
 	flex: 0 0 auto;
+}
+
+.spv-icon-picker-clear {
+	height: 28px;
+	width: 28px;
 }
 
 .spv-star-control {
