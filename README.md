@@ -5,18 +5,23 @@ Project Notes is an opinionated plugin for simple, lightweight note-based projec
 Your Markdown files stay the source of truth. The plugin only provides convenience and visuals, and aims to lease as little footprint as possible.
 
 ## Screenshots
-<img width="736" height="532" alt="image" src="https://github.com/user-attachments/assets/64b05645-7fe2-4e12-b6ac-c958ee774fff" />
+##### Note bar: edit project properties
+<img width="831" height="498" alt="image" src="https://github.com/user-attachments/assets/c4bbe41c-e51b-4452-b390-796fdf89fac0" />
 
 
+##### Kanban board bases view (can be colorful, or not)
 <img width="1463" height="486" alt="image" src="https://github.com/user-attachments/assets/60cb8dd2-1845-4e17-b16c-e97897f5ce82" />
 
 
+##### List bases view (good for sidebars and embedding)
 <img width="412" height="383" alt="image" src="https://github.com/user-attachments/assets/6cc5ffe4-81a3-438d-81ce-1c7cc21dca9d" />
 
 
+##### Pretty Project links (RMB to edit project properties)
 <img width="1043" height="310" alt="image" src="https://github.com/user-attachments/assets/f94d10d8-9150-45ab-bab7-048810b1ce9b" />
 
 
+##### Settings (customize almost anything)
 <img width="672" height="547" alt="image" src="https://github.com/user-attachments/assets/c49f1231-d439-4f81-8492-69af4be63772" />
 
 
