@@ -3,9 +3,11 @@ import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import {updateProjectProperty} from "../project-metadata";
 import {getStatusColor} from "../settings";
+import type {SimpleProjectViewsSettings} from "../settings";
 import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/project-controls";
 import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
+import {showProjectLinkMenu, waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate} from "../ui/project-link-menu";
 import {getBoardClassName} from "./board-appearance";
 
 const PROJECT_DRAG_TYPE = "application/x-simple-project-views-project";
@@ -18,13 +20,13 @@ interface ProjectDropTarget {
 	status: string;
 }
 
-interface ProjectBoardRenderOptions {
+export interface ProjectBoardRenderOptions {
+	editingCards: ReadonlySet<string>;
 	fields: ProjectControlField[];
 	labels: Partial<Record<ProjectControlField, string>>;
+	onToggleEdit: (path: string) => void;
 	showTitleIcon: boolean;
 }
-
-const editingBoardCards = new Set<string>();
 
 export function renderProjectBoard(
 	containerEl: HTMLElement,
@@ -35,7 +37,7 @@ export function renderProjectBoard(
 	const orderedProjects = getOrderedBoardProjects(projects, plugin.settings.boardCardOrder);
 	const statuses = getBoardStatuses(plugin.settings.statusOptions, projects, plugin.settings.boardColumnOrder);
 	const collapsedStatuses = new Set(plugin.settings.collapsedBoardColumns);
-	const boardEl = containerEl.createDiv({cls: getBoardClassName(plugin.settings.colorfulBoard, plugin.settings.boardCardLayout)});
+	const boardEl = containerEl.createDiv({cls: getBoardClassName(plugin.settings.boardColorMode, plugin.settings.boardCardLayout)});
 	boardEl.style.setProperty("--spv-board-column-width", `${plugin.settings.boardColumnWidth}px`);
 
 	for (const status of statuses) {
@@ -110,13 +112,11 @@ function renderBoardColumn(
 		columnEl.removeClass("spv-board-column-dragging");
 	});
 
-	if (isCollapsed) {
-		return;
-	}
-
 	const bodyEl = columnEl.createDiv({cls: "spv-board-column-body"});
-	for (const project of columnProjects) {
-		renderBoardCard(bodyEl, plugin, projects, project, status, options);
+	if (!isCollapsed) {
+		for (const project of columnProjects) {
+			renderBoardCard(bodyEl, plugin, projects, project, status, options);
+		}
 	}
 	bodyEl.createDiv({
 		cls: "spv-board-card-placeholder",
@@ -132,7 +132,7 @@ function renderBoardCard(
 	columnStatus: string,
 	options: ProjectBoardRenderOptions,
 ): void {
-	const isEditing = editingBoardCards.has(project.file.path);
+	const isEditing = options.editingCards.has(project.file.path);
 	const cardEl = containerEl.createDiv({cls: "spv-board-card"});
 	cardEl.classList.toggle("spv-board-card-editing", isEditing);
 	cardEl.setAttribute("data-spv-project-path", project.file.path);
@@ -179,10 +179,17 @@ function renderBoardCard(
 	cardEl.addEventListener("drop", (event) => {
 		void handleCardDrop(event, cardEl, plugin, projects, project, columnStatus);
 	});
+	cardEl.addEventListener("contextmenu", (event) => {
+		if (isCardContextMenuSuppressed(event.target)) {
+			return;
+		}
+
+		showProjectLinkMenu(event, plugin, project, project.file.path);
+	});
 
 	const headerEl = cardEl.createDiv({cls: "spv-project-summary-header"});
-	createProjectTitleButton(headerEl, project, () => {
-		void plugin.app.workspace.getLeaf(false).openFile(project.file);
+	createProjectTitleButton(headerEl, project, (event) => {
+		void plugin.app.workspace.getLeaf(event.ctrlKey || event.metaKey).openFile(project.file);
 	}, {
 		showIcon: options.showTitleIcon,
 	});
@@ -194,18 +201,12 @@ function renderBoardCard(
 		});
 		setIcon(editButtonEl, isEditing ? "check" : "pencil");
 		editButtonEl.addEventListener("click", () => {
-			if (isEditing) {
-				editingBoardCards.delete(project.file.path);
-			} else {
-				editingBoardCards.add(project.file.path);
-			}
-
-			plugin.refreshProjectSurfaces();
+			options.onToggleEdit(project.file.path);
 		});
 	}
 
-	const afterUpdate = () => {
-		plugin.refreshProjectSurfaces();
+	const afterUpdate = (propertyName: string, value: string | number | null) => {
+		waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(plugin, project.file, propertyName, value);
 	};
 
 	if (isEditing && options.fields.length > 0) {
@@ -234,11 +235,19 @@ function renderBoardCard(
 }
 
 function isCardDragSuppressed(target: EventTarget | null): boolean {
-	if (!(target instanceof HTMLElement)) {
+	if (!(target instanceof Element)) {
 		return false;
 	}
 
 	return target.closest("input, select, textarea, button, .spv-project-controls, .spv-board-card-edit") !== null;
+}
+
+function isCardContextMenuSuppressed(target: EventTarget | null): boolean {
+	if (!(target instanceof Element)) {
+		return false;
+	}
+
+	return target.closest("input, select, textarea, .spv-project-controls") !== null;
 }
 
 function handleColumnDragOver(event: DragEvent, boardEl: HTMLElement, columnEl: HTMLElement): void {
@@ -389,11 +398,22 @@ async function moveProjectOnBoard(
 
 		if (orderChanged) {
 			plugin.settings.boardCardOrder = nextOrder;
-			await plugin.saveSettings();
+			await plugin.saveSettings({refresh: !statusChanged});
+		}
+
+		if (statusChanged) {
+			waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
+				plugin,
+				project.file,
+				plugin.settings.propertyNames.status,
+				target.status || null,
+			);
 			return;
 		}
 
-		plugin.refreshProjectSurfaces();
+		if (!orderChanged) {
+			plugin.refreshProjectSurfaces();
+		}
 	} catch (error) {
 		console.error("Simple project views: could not move project", error);
 		new Notice("Could not move project");
@@ -440,6 +460,34 @@ function getBoardStatuses(statusOptions: string[], projects: ProjectInfo[], save
 	return [...savedStatuses, ...unsavedStatuses];
 }
 
+export function getProjectBoardRenderKey(
+	projects: ProjectInfo[],
+	settings: SimpleProjectViewsSettings,
+	options: ProjectBoardRenderOptions,
+): string {
+	const orderedProjects = getOrderedBoardProjects(projects, settings.boardCardOrder);
+	const statuses = getBoardStatuses(settings.statusOptions, projects, settings.boardColumnOrder);
+
+	return JSON.stringify({
+		appearance: {
+			boardCardLayout: settings.boardCardLayout,
+			boardColorMode: settings.boardColorMode,
+			boardColumnWidth: settings.boardColumnWidth,
+			collapsedBoardColumns: settings.collapsedBoardColumns,
+			statusColors: sortRecord(settings.statusColors),
+		},
+		editingCards: Array.from(options.editingCards).sort(),
+		labels: sortRecord(options.labels),
+		options: {
+			fields: options.fields,
+			showTitleIcon: options.showTitleIcon,
+		},
+		projects: orderedProjects.map(getProjectRenderSnapshot),
+		statusOptions: settings.statusOptions,
+		statuses,
+	});
+}
+
 function getBoardStatus(status: string, statusOptions: string[]): string {
 	return status && statusOptions.includes(status) ? status : "";
 }
@@ -461,6 +509,33 @@ function getVisibleCardFields(project: ProjectInfo, fields: ProjectControlField[
 	const nonEmptyFields = new Set(getNonEmptyProjectPropertyFieldIds(project));
 
 	return fields.filter((field) => field !== "icon" && field !== "status" && nonEmptyFields.has(field));
+}
+
+function getProjectRenderSnapshot(project: ProjectInfo): unknown {
+	return {
+		filePath: project.file.path,
+		icon: project.icon,
+		properties: project.properties.map((property) => ({
+			definition: {
+				icon: property.definition.icon,
+				id: property.definition.id,
+				label: property.definition.label,
+				labelMode: property.definition.labelMode,
+				name: property.definition.name,
+				render: property.definition.render,
+				type: property.definition.type,
+			},
+			numberValue: property.numberValue,
+			raw: property.raw,
+			value: property.value,
+		})),
+		status: project.status,
+		title: project.title,
+	};
+}
+
+function sortRecord<T>(record: Partial<Record<string, T>>): Partial<Record<string, T>> {
+	return Object.fromEntries(Object.entries(record).sort(([first], [second]) => first.localeCompare(second)));
 }
 
 function compareBoardProjects(a: ProjectInfo, b: ProjectInfo): number {

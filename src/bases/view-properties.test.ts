@@ -1,7 +1,7 @@
 /* eslint-disable import/no-nodejs-modules -- Node test files import built-in test/assert modules. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import {getBoardClassName, normalizeBoardCardLayout, normalizeColorfulBoard} from "./board-appearance";
+import {getBoardClassName, normalizeBoardCardLayout, normalizeBoardColorMode, normalizeColorfulBoard} from "./board-appearance";
 import {buildProjectBaseContent} from "./base-file";
 import type {ProjectPropertyDefinition} from "../project-properties";
 import type {SimpleProjectViewsSettings} from "../settings";
@@ -90,6 +90,7 @@ const settings: SimpleProjectViewsSettings = {
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
 	colorfulBoard: false,
+	boardColorMode: "plain",
 	boardCardLayout: "default",
 	showTableColumnDividers: true,
 	boardColumnOrder: [],
@@ -194,9 +195,14 @@ void test("normalizes colorful board setting and class name", () => {
 	assert.equal(normalizeColorfulBoard(undefined), false);
 	assert.equal(normalizeColorfulBoard(false), false);
 	assert.equal(normalizeColorfulBoard(true), true);
-	assert.equal(getBoardClassName(false, "default"), "spv-board spv-board-card-layout-default");
-	assert.equal(getBoardClassName(true, "compact"), "spv-board spv-board-colorful spv-board-card-layout-compact");
-	assert.equal(getBoardClassName(true, "spacious"), "spv-board spv-board-colorful spv-board-card-layout-spacious");
+	assert.equal(normalizeBoardColorMode(undefined, false), "plain");
+	assert.equal(normalizeBoardColorMode(undefined, true), "colorful");
+	assert.equal(normalizeBoardColorMode("subtle", false), "subtle");
+	assert.equal(normalizeBoardColorMode("colorful", false), "colorful");
+	assert.equal(normalizeBoardColorMode("bright", true), "colorful");
+	assert.equal(getBoardClassName("plain", "default"), "spv-board spv-board-card-layout-default");
+	assert.equal(getBoardClassName("subtle", "compact"), "spv-board spv-board-subtle spv-board-card-layout-compact");
+	assert.equal(getBoardClassName("colorful", "spacious"), "spv-board spv-board-colorful spv-board-card-layout-spacious");
 });
 
 void test("normalizes board card layout setting", () => {

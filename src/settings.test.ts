@@ -175,3 +175,13 @@ void test("normalizes pretty link property name visibility", () => {
 	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: false}).prettyLinkShowPropertyNames, false);
 	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: "false" as never}).prettyLinkShowPropertyNames, true);
 });
+
+void test("normalizes board color mode and migrates the legacy colorful toggle", () => {
+	assert.equal(normalizeSettings().boardColorMode, "plain");
+	assert.equal(normalizeSettings({colorfulBoard: true}).boardColorMode, "colorful");
+	assert.equal(normalizeSettings({colorfulBoard: false}).boardColorMode, "plain");
+	assert.equal(normalizeSettings({boardColorMode: "subtle" as never}).boardColorMode, "subtle");
+	assert.equal(normalizeSettings({boardColorMode: "colorful" as never}).colorfulBoard, true);
+	assert.equal(normalizeSettings({boardColorMode: "plain" as never}).colorfulBoard, false);
+	assert.equal(normalizeSettings({boardColorMode: "noisy" as never, colorfulBoard: true}).boardColorMode, "colorful");
+});

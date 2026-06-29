@@ -8,14 +8,14 @@ interface ProjectTitleOptions {
 export function createProjectTitleButton(
 	containerEl: HTMLElement,
 	project: ProjectInfo,
-	onClick: () => void,
+	onClick: (event: MouseEvent) => void,
 	options: ProjectTitleOptions = {},
 ): HTMLButtonElement {
 	const titleEl = containerEl.createEl("button", {
 		cls: "spv-link-button spv-project-title-button",
 	});
 	renderProjectTitle(titleEl, project, options);
-	titleEl.addEventListener("click", onClick);
+	titleEl.addEventListener("click", (event) => onClick(event));
 
 	return titleEl;
 }

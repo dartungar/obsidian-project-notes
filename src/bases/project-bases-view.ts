@@ -6,7 +6,8 @@ import {getStatusColor, getStatusDisplayClassName} from "../settings";
 import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/project-controls";
 import type {ProjectControlField} from "../ui/project-controls";
 import {createProjectTitleButton} from "../ui/project-icon";
-import {renderProjectBoard} from "./project-board";
+import {getProjectBoardRenderKey, renderProjectBoard} from "./project-board";
+import type {ProjectBoardRenderOptions} from "./project-board";
 import {
 	MIN_TABLE_COLUMN_WIDTH,
 	normalizeTableColumnWidths,
@@ -48,7 +49,9 @@ export class ProjectBasesView extends BasesView {
 	readonly type: string;
 	private readonly containerEl: HTMLElement;
 	private readonly editingListProjects = new Set<string>();
+	private readonly editingBoardProjects = new Set<string>();
 	private readonly editingTableProgressCells = new Set<string>();
+	private lastBoardRenderKey: string | null = null;
 
 	constructor(
 		controller: QueryController,
@@ -68,8 +71,7 @@ export class ProjectBasesView extends BasesView {
 		this.render();
 	}
 
-	public render(): void {
-		this.containerEl.empty();
+	public render(options: {force?: boolean} = {}): void {
 		const viewProperties = this.getViewProperties();
 		const groups = this.variant === "board" ? [] : this.getProjectGroups();
 		const projects = this.variant === "board"
@@ -77,6 +79,8 @@ export class ProjectBasesView extends BasesView {
 			: getProjectsFromGroups(groups);
 
 		if (projects.length === 0) {
+			this.lastBoardRenderKey = null;
+			this.containerEl.empty();
 			this.containerEl.createDiv({
 				cls: "spv-empty-state",
 				text: "No projects match this Base.",
@@ -85,10 +89,20 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		if (this.variant === "board") {
-			this.renderBoard(projects, viewProperties);
+			const boardOptions = this.getBoardRenderOptions(viewProperties);
+			const boardRenderKey = getProjectBoardRenderKey(projects, this.plugin.settings, boardOptions);
+			if (!options.force && this.lastBoardRenderKey === boardRenderKey && this.containerEl.childElementCount > 0) {
+				return;
+			}
+
+			this.containerEl.empty();
+			this.renderBoard(projects, boardOptions);
+			this.lastBoardRenderKey = boardRenderKey;
 			return;
 		}
 
+		this.lastBoardRenderKey = null;
+		this.containerEl.empty();
 		if (this.variant === "table") {
 			this.renderTable(groups, viewProperties);
 			return;
@@ -180,12 +194,30 @@ export class ProjectBasesView extends BasesView {
 		}
 	}
 
-	private renderBoard(projects: ProjectInfo[], viewProperties: ResolvedProjectViewProperties): void {
+	private renderBoard(projects: ProjectInfo[], options: ProjectBoardRenderOptions): void {
 		renderProjectBoard(this.containerEl, this.plugin, projects, {
+			...options,
+		});
+	}
+
+	private getBoardRenderOptions(viewProperties: ResolvedProjectViewProperties): ProjectBoardRenderOptions {
+		return {
+			editingCards: this.editingBoardProjects,
 			fields: viewProperties.controlFields,
 			labels: this.getFieldLabels(),
+			onToggleEdit: (path: string) => this.toggleBoardProjectEdit(path),
 			showTitleIcon: viewProperties.showTitleIcon,
-		});
+		};
+	}
+
+	private toggleBoardProjectEdit(path: string): void {
+		if (this.editingBoardProjects.has(path)) {
+			this.editingBoardProjects.delete(path);
+		} else {
+			this.editingBoardProjects.add(path);
+		}
+
+		this.render({force: true});
 	}
 
 	private renderListProject(
@@ -200,8 +232,8 @@ export class ProjectBasesView extends BasesView {
 		rowEl.classList.toggle("is-editing", isEditing);
 
 		const headerEl = rowEl.createDiv({cls: "spv-list-row-header"});
-		createProjectTitleButton(headerEl, project, () => {
-			void this.app.workspace.getLeaf(false).openFile(project.file);
+		createProjectTitleButton(headerEl, project, (event) => {
+			this.openProjectFile(project.file, event);
 		}, {
 			showIcon: viewProperties.showTitleIcon,
 		});
@@ -324,8 +356,8 @@ export class ProjectBasesView extends BasesView {
 	private renderTableCell(rowEl: HTMLTableRowElement, project: ProjectInfo, column: ProjectViewColumn): void {
 		const cellEl = rowEl.createEl("td");
 		if (column.key === "title") {
-			createProjectTitleButton(cellEl, project, () => {
-				void this.app.workspace.getLeaf(false).openFile(project.file);
+			createProjectTitleButton(cellEl, project, (event) => {
+				this.openProjectFile(project.file, event);
 			}, {
 				showIcon: false,
 			});
@@ -699,6 +731,10 @@ export class ProjectBasesView extends BasesView {
 			text: status || "No status",
 		});
 		badgeEl.style.setProperty("--spv-status-color", getStatusColor(this.plugin.settings, status));
+	}
+
+	private openProjectFile(file: TFile, event: MouseEvent): void {
+		void this.app.workspace.getLeaf(event.ctrlKey || event.metaKey).openFile(file);
 	}
 
 	private getFieldLabels(): Partial<Record<ProjectControlField, string>> {

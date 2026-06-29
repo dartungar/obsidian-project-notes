@@ -27,7 +27,7 @@ export interface ProjectControlsOptions {
 	showLabels?: boolean;
 	readOnly?: boolean;
 	readOnlyProgress?: boolean;
-	afterUpdate?: () => void;
+	afterUpdate?: (propertyName: string, value: ProjectPropertyInputValue) => void;
 }
 
 type FocusableControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -64,8 +64,9 @@ export function renderProjectControls(
 	for (const field of fields) {
 		if (field === "status") {
 			const inputEl = createSelectField(controlsEl, options.labels?.status ?? "Status", "status", settings.statusOptions, project.status, async (value) => {
-				await updateProjectProperty(app, project.file, settings.propertyNames.status, value || null);
-				options.afterUpdate?.();
+				const nextValue = value || null;
+				await updateProjectProperty(app, project.file, settings.propertyNames.status, nextValue);
+				options.afterUpdate?.(settings.propertyNames.status, nextValue);
 			});
 			inputEl.parentElement?.style.setProperty("--spv-status-color", getStatusColor(settings, project.status));
 			if (options.focusField === "status") {
@@ -81,7 +82,7 @@ export function renderProjectControls(
 
 			const inputEl = createIconField(controlsEl, app, project.icon, "Project icon", "icon", async (value) => {
 				await updateProjectProperty(app, project.file, settings.propertyNames.icon, value);
-				options.afterUpdate?.();
+				options.afterUpdate?.(settings.propertyNames.icon, value);
 			});
 			if (options.focusField === "icon") {
 				focusEl = inputEl;
@@ -107,8 +108,9 @@ export function renderProjectControls(
 		}
 
 		const inputEl = createPropertyField(controlsEl, property, options.labels?.[field], async (value) => {
-			await updateProjectProperty(app, project.file, definition.name, normalizePropertyInputValue(definition, value));
-			options.afterUpdate?.();
+			const nextValue = normalizePropertyInputValue(definition, value);
+			await updateProjectProperty(app, project.file, definition.name, nextValue);
+			options.afterUpdate?.(definition.name, nextValue);
 		});
 
 		if (options.focusField === field) {

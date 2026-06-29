@@ -114,6 +114,10 @@ button.spv-settings-tab.is-active {
 	min-width: 0;
 }
 
+.spv-board-column-header {
+	align-items: center;
+}
+
 .spv-board-column h3 {
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-semibold);
@@ -719,6 +723,19 @@ button.spv-link-button:focus-visible {
 	color: var(--text-normal);
 }
 
+.spv-board-card .spv-board-card-edit {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease;
+}
+
+.spv-board-card:hover .spv-board-card-edit,
+.spv-board-card:focus-within .spv-board-card-edit,
+.spv-board-card-editing .spv-board-card-edit {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .spv-status-badge {
 	background: transparent;
 	border: var(--border-width, 1px) solid transparent;
@@ -799,9 +816,21 @@ button.spv-link-button:focus-visible {
 	gap: var(--spv-board-card-gap);
 }
 
+.spv-board-subtle .spv-board-column {
+	background: color-mix(in srgb, var(--spv-status-color) 4%, var(--background-secondary));
+	border-color: color-mix(in srgb, var(--spv-status-color) 18%, var(--background-modifier-border));
+}
+
 .spv-board-colorful .spv-board-column {
 	background: color-mix(in srgb, var(--spv-status-color) 10%, var(--background-secondary));
 	border-color: color-mix(in srgb, var(--spv-status-color) 40%, var(--background-modifier-border));
+}
+
+.spv-board-subtle .spv-board-column-header {
+	background: color-mix(in srgb, var(--spv-status-color) 6%, transparent);
+	border-radius: var(--radius-s);
+	margin: calc(var(--spv-board-column-padding) * -1) calc(var(--spv-board-column-padding) * -1) 0;
+	padding: var(--spv-board-column-padding);
 }
 
 .spv-board-colorful .spv-board-column-header {
@@ -811,6 +840,15 @@ button.spv-link-button:focus-visible {
 	padding: var(--spv-board-column-padding);
 }
 
+.spv-board-subtle .spv-board-column-count {
+	background: color-mix(in srgb, var(--spv-status-color) 8%, var(--background-modifier-hover));
+	border-radius: 999px;
+	color: var(--text-muted);
+	min-width: 1.75em;
+	padding: 1px var(--size-2-2);
+	text-align: center;
+}
+
 .spv-board-colorful .spv-board-column-count {
 	background: color-mix(in srgb, var(--spv-status-color) 18%, var(--background-modifier-hover));
 	border-radius: 999px;
@@ -818,6 +856,11 @@ button.spv-link-button:focus-visible {
 	min-width: 1.75em;
 	padding: 1px var(--size-2-2);
 	text-align: center;
+}
+
+.spv-board-subtle .spv-board-card {
+	background: color-mix(in srgb, var(--spv-status-color) 2%, var(--background-primary));
+	border-color: color-mix(in srgb, var(--spv-status-color) 16%, var(--background-modifier-border));
 }
 
 .spv-board-colorful .spv-board-card {
@@ -941,7 +984,18 @@ button.spv-link-button:focus-visible {
 }
 
 .spv-board-column-collapsed .spv-board-column-header {
+	align-items: center;
 	flex-direction: column;
+}
+
+.spv-board-column-collapsed .spv-board-column-body {
+	display: none;
+}
+
+.spv-board-column-collapsed.spv-board-column-drop-target .spv-board-column-body {
+	display: flex;
+	min-height: 4rem;
+	width: 100%;
 }
 
 .spv-board-column-collapsed .spv-board-column-title {

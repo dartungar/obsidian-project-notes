@@ -1,7 +1,7 @@
 import {App, ButtonComponent, Modal, Notice, PluginSettingTab, Setting, SuggestModal, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "./main";
-import {normalizeBoardCardLayout, normalizeColorfulBoard} from "./bases/board-appearance";
-import type {BoardCardLayout} from "./bases/board-appearance";
+import {normalizeBoardCardLayout, normalizeBoardColorMode} from "./bases/board-appearance";
+import type {BoardCardLayout, BoardColorMode} from "./bases/board-appearance";
 import {normalizeShowTableColumnDividers} from "./bases/table-appearance";
 import {updateProjectProperty} from "./project-metadata";
 import {
@@ -74,6 +74,7 @@ export interface SimpleProjectViewsSettings {
 	baseFilePath: string;
 	boardColumnWidth: number;
 	colorfulBoard: boolean;
+	boardColorMode: BoardColorMode;
 	boardCardLayout: BoardCardLayout;
 	showTableColumnDividers: boolean;
 	boardColumnOrder: string[];
@@ -148,6 +149,7 @@ export const DEFAULT_SETTINGS: SimpleProjectViewsSettings = {
 	baseFilePath: "Project views.base",
 	boardColumnWidth: 280,
 	colorfulBoard: false,
+	boardColorMode: "plain",
 	boardCardLayout: "default",
 	showTableColumnDividers: true,
 	boardColumnOrder: [],
@@ -191,6 +193,7 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 	const projectProperties = normalizeSavedProjectProperties(savedSettings, propertyNames, enabledProperties);
 	const statusOptions = normalizeStatusOptions(savedSettings.statusOptions);
 	const prettyLinkFields = normalizePrettyLinkFields(savedSettings.prettyLinkFields, projectProperties);
+	const boardColorMode = normalizeBoardColorMode(savedSettings.boardColorMode, savedSettings.colorfulBoard);
 
 	return {
 		...DEFAULT_SETTINGS,
@@ -216,7 +219,8 @@ export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> 
 		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(savedSettings.projectCreationPathTemplate),
 		projectCreationTemplatePath: normalizeProjectTemplatePath(savedSettings.projectCreationTemplatePath),
 		boardColumnWidth: normalizeBoardColumnWidth(savedSettings.boardColumnWidth),
-		colorfulBoard: normalizeColorfulBoard(savedSettings.colorfulBoard),
+		colorfulBoard: boardColorMode !== "plain",
+		boardColorMode,
 		boardCardLayout: normalizeBoardCardLayout(savedSettings.boardCardLayout),
 		showTableColumnDividers: normalizeShowTableColumnDividers(savedSettings.showTableColumnDividers),
 		boardColumnOrder: normalizeStringList(savedSettings.boardColumnOrder),
@@ -704,13 +708,17 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Colorful board")
-			.setDesc("Tint board columns and cards using status colors.")
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.colorfulBoard)
+			.setName("Board color")
+			.setDesc("Choose how strongly status colors tint the board.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("plain", "Plain")
+					.addOption("subtle", "Subtle")
+					.addOption("colorful", "Colorful")
+					.setValue(this.plugin.settings.boardColorMode)
 					.onChange(async (value) => {
-						this.plugin.settings.colorfulBoard = value;
+						this.plugin.settings.boardColorMode = normalizeBoardColorMode(value, this.plugin.settings.colorfulBoard);
+						this.plugin.settings.colorfulBoard = this.plugin.settings.boardColorMode !== "plain";
 						await this.plugin.saveSettings();
 					});
 			});

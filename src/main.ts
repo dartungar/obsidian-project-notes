@@ -51,15 +51,17 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.settings = normalizeSettings(await this.loadData() as Partial<SimpleProjectViewsSettings>);
 	}
 
-	async saveSettings(): Promise<void> {
+	async saveSettings(options: {refresh?: boolean} = {}): Promise<void> {
 		this.settings = normalizeSettings(this.settings);
 		await this.saveData(this.settings);
-		this.refreshProjectSurfaces();
+		if (options.refresh !== false) {
+			this.refreshProjectSurfaces();
+		}
 	}
 
-	refreshProjectSurfaces(): void {
+	refreshProjectSurfaces(options: {force?: boolean} = {}): void {
 		this.projectToolbar?.refreshAll();
-		this.refreshProjectBasesViews();
+		this.refreshProjectBasesViews(options);
 		refreshPrettyProjectLinksInReadingView(this);
 		refreshPrettyProjectLinkLivePreviewEditors();
 		this.app.workspace.updateOptions();
@@ -153,7 +155,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.addCommand({
 			id: "refresh-project-views",
 			name: "Refresh project views",
-			callback: () => this.refreshProjectSurfaces(),
+			callback: () => this.refreshProjectSurfaces({force: true}),
 		});
 
 		this.addCommand({
@@ -238,9 +240,9 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 		this.registerEvent(this.app.vault.on("rename", () => this.refreshProjectSurfaces()));
 	}
 
-	private refreshProjectBasesViews(): void {
+	private refreshProjectBasesViews(options: {force?: boolean} = {}): void {
 		for (const view of this.projectBasesViews) {
-			view.render();
+			view.render(options);
 		}
 	}
 
