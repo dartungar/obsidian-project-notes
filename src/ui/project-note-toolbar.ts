@@ -24,7 +24,11 @@ export class ProjectNoteToolbar {
 	}
 
 	removeAll(): void {
-		document.querySelectorAll(`.${TOOLBAR_CLASS}`).forEach((toolbarEl) => toolbarEl.remove());
+		this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view instanceof MarkdownView) {
+				leaf.view.containerEl.querySelectorAll(`.${TOOLBAR_CLASS}`).forEach((toolbarEl) => toolbarEl.remove());
+			}
+		});
 	}
 
 	private decorateView(view: MarkdownView): void {

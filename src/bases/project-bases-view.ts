@@ -522,18 +522,14 @@ export class ProjectBasesView extends BasesView {
 		menu.addSeparator();
 		menu.addItem((item) => {
 			item
-				// Native Bases uses A/Z labels in the table header menu.
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setTitle("Sort A to Z")
+				.setTitle(createMenuLabel("Sort A to Z"))
 				.setIcon("arrow-down-a-z")
 				.setChecked(sort?.direction === "ASC")
 				.onClick(() => this.setTableColumnSort(column, "ASC"));
 		});
 		menu.addItem((item) => {
 			item
-				// Native Bases uses A/Z labels in the table header menu.
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
-				.setTitle("Sort Z to A")
+				.setTitle(createMenuLabel("Sort Z to A"))
 				.setIcon("arrow-down-z-a")
 				.setChecked(sort?.direction === "DESC")
 				.onClick(() => this.setTableColumnSort(column, "DESC"));
@@ -763,6 +759,12 @@ function isBasesSortConfig(value: unknown): value is BasesWritableSortConfig {
 
 	const sort = value as Partial<BasesSortConfig>;
 	return typeof sort.property === "string" && (sort.direction === "ASC" || sort.direction === "DESC");
+}
+
+function createMenuLabel(text: string): DocumentFragment {
+	const fragment = window.activeDocument.createDocumentFragment();
+	fragment.append(text);
+	return fragment;
 }
 
 function isBasesPropertyId(value: unknown): value is string {

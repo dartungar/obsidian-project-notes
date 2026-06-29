@@ -468,6 +468,10 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.renderSettings();
+	}
+
+	private renderSettings(): void {
 		const {containerEl} = this;
 
 		containerEl.empty();
@@ -505,7 +509,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 			tabEl.addEventListener("click", () => {
 				this.activeTab = tabId;
-				this.display();
+				this.renderSettings();
 			});
 		}
 	}
@@ -525,7 +529,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.projectMatchType = normalizeProjectMatchType(value);
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			});
 
@@ -566,7 +570,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						new MarkdownFileSuggestModal(this.app, this.plugin.settings.projectCreationTemplatePath, async (file) => {
 							this.plugin.settings.projectCreationTemplatePath = file.path;
 							await this.plugin.saveSettings();
-							this.display();
+							this.renderSettings();
 						}).open();
 					});
 			});
@@ -646,7 +650,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		this.addHeading(containerEl, "Board");
 
-		const widthValueEl = document.createElement("span");
+		const widthValueEl = containerEl.ownerDocument.createElement("span");
 		widthValueEl.addClass("spv-setting-value");
 		widthValueEl.setText(`${this.plugin.settings.boardColumnWidth}px`);
 
@@ -657,7 +661,6 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 				slider
 					.setLimits(MIN_BOARD_COLUMN_WIDTH, MAX_BOARD_COLUMN_WIDTH, BOARD_COLUMN_WIDTH_STEP)
 					.setValue(this.plugin.settings.boardColumnWidth)
-					.setDynamicTooltip()
 					.onChange(async (value) => {
 						this.plugin.settings.boardColumnWidth = normalizeBoardColumnWidth(value);
 						widthValueEl.setText(`${this.plugin.settings.boardColumnWidth}px`);
@@ -673,7 +676,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						this.plugin.settings.boardCardOrder = [];
 						this.plugin.settings.collapsedBoardColumns = [];
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			})
 			.then((setting) => {
@@ -766,7 +769,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.prettyLinksEnabled = value;
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			});
 
@@ -832,7 +835,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.relationshipsEnabled = value;
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			});
 
@@ -947,7 +950,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					} else if (event.key === "Escape") {
 						shouldSaveName = false;
 						this.editingStatus = null;
-						this.display();
+						this.renderSettings();
 					}
 				});
 
@@ -962,7 +965,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.setIcon("pencil")
 					.onClick(() => {
 						this.editingStatus = status;
-						this.display();
+						this.renderSettings();
 					});
 			});
 		}
@@ -1081,7 +1084,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.enabledProperties.icon = value;
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			})
 			.addText((text) => {
@@ -1122,7 +1125,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						} else {
 							this.expandedProjectProperties.add(property.id);
 						}
-						this.display();
+						this.renderSettings();
 					});
 			})
 			.addExtraButton((button) => {
@@ -1320,7 +1323,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 						];
 						this.expandedProjectProperties.add(property.id);
 						await this.plugin.saveSettings();
-						this.display();
+						this.renderSettings();
 					});
 			});
 	}
@@ -1344,7 +1347,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		await this.plugin.saveSettings();
 
 		if (rerender) {
-			this.display();
+			this.renderSettings();
 		}
 	}
 
@@ -1375,7 +1378,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		properties.splice(toIndex, 0, property);
 		this.plugin.settings.projectProperties = properties;
 		await this.plugin.saveSettings();
-		this.display();
+		this.renderSettings();
 	}
 
 	private async confirmDeleteProjectProperty(index: number): Promise<void> {
@@ -1404,7 +1407,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		this.plugin.settings.projectProperties = this.plugin.settings.projectProperties.filter((_, propertyIndex) => propertyIndex !== index);
 		await this.plugin.saveSettings();
-		this.display();
+		this.renderSettings();
 	}
 
 	private async addStatus(value: string): Promise<void> {
@@ -1423,7 +1426,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.plugin.settings.statusColors[status] = FALLBACK_STATUS_COLOR;
 		this.plugin.settings.boardColumnOrder = [...this.plugin.settings.statusOptions];
 		await this.plugin.saveSettings();
-		this.display();
+		this.renderSettings();
 	}
 
 	private async renameStatus(index: number, oldStatus: string, value: string): Promise<void> {
@@ -1434,13 +1437,13 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		if (!nextStatus) {
 			new Notice("Enter a status name");
-			this.display();
+			this.renderSettings();
 			return;
 		}
 
 		if (this.plugin.settings.statusOptions.includes(nextStatus)) {
 			new Notice("Status already exists");
-			this.display();
+			this.renderSettings();
 			return;
 		}
 
@@ -1464,7 +1467,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			new Notice("Could not update all project statuses");
 		}
 		this.plugin.refreshProjectSurfaces();
-		this.display();
+		this.renderSettings();
 	}
 
 	private async moveStatus(fromIndex: number, toIndex: number): Promise<void> {
@@ -1482,7 +1485,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.plugin.settings.statusOptions = statusOptions;
 		this.plugin.settings.boardColumnOrder = [...statusOptions];
 		await this.plugin.saveSettings();
-		this.display();
+		this.renderSettings();
 	}
 
 	private async confirmDeleteStatus(status: string): Promise<void> {
@@ -1503,7 +1506,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.plugin.settings.collapsedBoardColumns = this.plugin.settings.collapsedBoardColumns.filter((candidate) => candidate !== status);
 		delete this.plugin.settings.statusColors[status];
 		await this.plugin.saveSettings();
-		this.display();
+		this.renderSettings();
 	}
 
 	private addHeading(containerEl: HTMLElement, name: string): void {
@@ -1585,10 +1588,10 @@ class DeleteConfirmationModal extends Modal {
 			.setButtonText("Cancel")
 			.onClick(() => this.closeWithResult(false));
 
-		new ButtonComponent(actionsEl)
-			.setButtonText(this.options.confirmText)
-			.setWarning()
-			.onClick(() => this.closeWithResult(true));
+		setButtonDestructive(
+			new ButtonComponent(actionsEl)
+				.setButtonText(this.options.confirmText),
+		).onClick(() => this.closeWithResult(true));
 	}
 
 	onClose(): void {
@@ -1609,4 +1612,26 @@ class DeleteConfirmationModal extends Modal {
 		this.didResolve = true;
 		this.resolve(confirmed);
 	}
+}
+
+type ButtonStyleMethodName = "setDestructive" | "setWarning";
+type ButtonStyleComponent = Partial<Record<ButtonStyleMethodName, (this: ButtonComponent) => ButtonComponent>>;
+
+function setButtonDestructive(button: ButtonComponent): ButtonComponent {
+	if (callButtonStyleMethod(button, "setDestructive")) {
+		return button;
+	}
+
+	callButtonStyleMethod(button, "setWarning");
+	return button;
+}
+
+function callButtonStyleMethod(button: ButtonComponent, methodName: ButtonStyleMethodName): boolean {
+	const method = (button as ButtonStyleComponent)[methodName];
+	if (!method) {
+		return false;
+	}
+
+	method.call(button);
+	return true;
 }

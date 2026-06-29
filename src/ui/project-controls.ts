@@ -662,7 +662,7 @@ function ensureOption(options: string[], value: string): string[] {
 }
 
 function focusControl(inputEl: FocusableControl): void {
-	requestAnimationFrame(() => {
+	inputEl.ownerDocument.defaultView?.requestAnimationFrame(() => {
 		inputEl.focus();
 		if (inputEl instanceof HTMLInputElement && inputEl.type === "text") {
 			inputEl.select();

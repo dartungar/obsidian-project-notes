@@ -55,7 +55,7 @@ export class CreateProjectModal extends Modal {
 						void this.createProject();
 					}
 				});
-				requestAnimationFrame(() => text.inputEl.focus());
+				this.contentEl.ownerDocument.defaultView?.requestAnimationFrame(() => text.inputEl.focus());
 			});
 	}
 
@@ -132,7 +132,7 @@ export class CreateProjectModal extends Modal {
 
 	private addNumberSetting(property: ProjectPropertyDefinition): void {
 		const value = this.getNumberValue(property);
-		const valueEl = document.createElement("span");
+		const valueEl = this.contentEl.ownerDocument.createElement("span");
 		valueEl.addClass("spv-setting-value");
 		valueEl.setText(String(value));
 
@@ -142,7 +142,6 @@ export class CreateProjectModal extends Modal {
 				slider
 					.setLimits(property.min, property.max, property.step)
 					.setValue(value)
-					.setDynamicTooltip()
 					.onChange((nextValue) => {
 						this.values.propertyValues[property.id] = nextValue;
 						valueEl.setText(String(nextValue));

@@ -112,7 +112,7 @@ export function addNativeNoteActionsItem(
 
 export function createNoteActionsMenuTitle(
 	openMenu: (event: MouseEvent | KeyboardEvent) => void,
-	doc: Document = (window as Window & {activeDocument?: Document}).activeDocument ?? document,
+	doc: Document = window.activeDocument,
 ): DocumentFragment {
 	const fragment = doc.createDocumentFragment();
 	const titleEl = doc.createElement("span");
