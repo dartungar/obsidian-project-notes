@@ -43,6 +43,39 @@ export class Notice {
 	}
 }
 
+export class MarkdownView {
+	file: TFile | null = null;
+}
+
+export class Plugin {
+	app = new App();
+
+	async loadData(): Promise<unknown> {
+		return null;
+	}
+
+	async saveData(_data: unknown): Promise<void> {
+	}
+
+	addCommand(_command: unknown): void {
+	}
+
+	addSettingTab(_settingTab: unknown): void {
+	}
+
+	registerBasesView(_viewType: string, _viewCreator: unknown): void {
+	}
+
+	registerEditorExtension(_extension: unknown): void {
+	}
+
+	registerEvent(_eventRef: unknown): void {
+	}
+
+	registerMarkdownPostProcessor(_processor: unknown): void {
+	}
+}
+
 export class PluginSettingTab {
 	containerEl = createElement();
 
@@ -208,6 +241,10 @@ export function parseLinktext(linktext: string): {path: string; subpath: string}
 		path: linktext.slice(0, hashIndex),
 		subpath: linktext.slice(hashIndex),
 	};
+}
+
+export function normalizePath(path: string): string {
+	return path;
 }
 
 function createElement(): HTMLElement {

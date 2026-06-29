@@ -23,7 +23,7 @@ import {ProjectNoteToolbar} from "./ui/project-note-toolbar";
 export default class SimpleProjectViewsPlugin extends Plugin {
 	settings: SimpleProjectViewsSettings;
 	projectIndex: ProjectIndex;
-	private projectToolbar: ProjectNoteToolbar;
+	private projectToolbar: ProjectNoteToolbar | null = null;
 	private readonly projectBasesViews = new Set<ProjectBasesView>();
 
 	async onload(): Promise<void> {
@@ -44,7 +44,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	}
 
 	onunload(): void {
-		this.projectToolbar.removeAll();
+		this.projectToolbar?.removeAll();
 	}
 
 	async loadSettings(): Promise<void> {
@@ -58,7 +58,7 @@ export default class SimpleProjectViewsPlugin extends Plugin {
 	}
 
 	refreshProjectSurfaces(): void {
-		this.projectToolbar.refreshAll();
+		this.projectToolbar?.refreshAll();
 		this.refreshProjectBasesViews();
 		refreshPrettyProjectLinksInReadingView(this);
 		refreshPrettyProjectLinkLivePreviewEditors();

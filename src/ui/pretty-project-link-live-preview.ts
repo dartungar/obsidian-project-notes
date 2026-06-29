@@ -1,4 +1,4 @@
-import {RangeSetBuilder, StateEffect} from "@codemirror/state";
+import {Prec, RangeSetBuilder, StateEffect} from "@codemirror/state";
 import type {Extension} from "@codemirror/state";
 import {Decoration, EditorView, ViewPlugin, WidgetType} from "@codemirror/view";
 import type {DecorationSet, ViewUpdate} from "@codemirror/view";
@@ -12,6 +12,16 @@ const WIKI_LINK_REGEX = /!?\[\[([^\]\n]+)\]\]/g;
 const prettyProjectLinkRefreshEffect = StateEffect.define<void>();
 const livePreviewViews = new Set<EditorView>();
 
+interface BuildPrettyProjectLinkDecorationOptions {
+	preservePreviousOnMissingProject?: boolean;
+	previousDecorations?: DecorationSet;
+	renderSelectedLinks?: boolean;
+}
+
+interface PrettyProjectLinkDecorationSpec {
+	spvPrettyProjectLinkKey?: unknown;
+}
+
 export function trackPrettyProjectLinkLivePreviewView(view: EditorView): void {
 	livePreviewViews.add(view);
 }
@@ -24,6 +34,7 @@ export function refreshPrettyProjectLinkLivePreviewEditors(): void {
 	for (const view of livePreviewViews) {
 		view.dispatch({
 			effects: prettyProjectLinkRefreshEffect.of(),
+			selection: view.state.selection,
 		});
 	}
 }
@@ -34,8 +45,12 @@ export function hasPrettyProjectLinkRefreshEffect(update: ViewUpdate): boolean {
 	});
 }
 
+export function shouldPreservePreviousPrettyProjectLinkDecorations(update: Pick<ViewUpdate, "docChanged">): boolean {
+	return !update.docChanged;
+}
+
 export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjectViewsPlugin): Extension {
-	return ViewPlugin.fromClass(class {
+	return Prec.highest(ViewPlugin.fromClass(class {
 		decorations: DecorationSet;
 
 		constructor(private readonly view: EditorView) {
@@ -46,7 +61,10 @@ export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjec
 		update(update: ViewUpdate): void {
 			const isPrettyLinkRefresh = hasPrettyProjectLinkRefreshEffect(update);
 			if (update.docChanged || update.viewportChanged || update.selectionSet || isPrettyLinkRefresh) {
-				this.decorations = this.buildDecorations({renderSelectedLinks: isPrettyLinkRefresh});
+				this.decorations = this.buildDecorations({
+					preservePreviousOnMissingProject: shouldPreservePreviousPrettyProjectLinkDecorations(update),
+					renderSelectedLinks: isPrettyLinkRefresh,
+				});
 			}
 		}
 
@@ -54,52 +72,63 @@ export function createPrettyProjectLinkLivePreviewExtension(plugin: SimpleProjec
 			untrackPrettyProjectLinkLivePreviewView(this.view);
 		}
 
-		private buildDecorations(options: {renderSelectedLinks: boolean} = {renderSelectedLinks: false}): DecorationSet {
-			if (!plugin.settings.prettyLinksEnabled || !this.view.state.field(editorLivePreviewField, false)) {
-				return Decoration.none;
-			}
-
-			const sourcePath = getSourcePath(this.view);
-			if (!sourcePath) {
-				return Decoration.none;
-			}
-
-			const builder = new RangeSetBuilder<Decoration>();
-			for (const range of this.view.visibleRanges) {
-				const text = this.view.state.doc.sliceString(range.from, range.to);
-				WIKI_LINK_REGEX.lastIndex = 0;
-				let match: RegExpExecArray | null;
-				while ((match = WIKI_LINK_REGEX.exec(text)) !== null) {
-					const matchedText = match[0];
-					if (matchedText.startsWith("!")) {
-						continue;
-					}
-
-					const from = range.from + match.index;
-					const to = from + matchedText.length;
-					if (!shouldRenderPrettyProjectLinkRange(this.view, from, to, options.renderSelectedLinks)) {
-						continue;
-					}
-
-					const linkBody = match[1] ?? "";
-					const [linktext, alias] = splitLinkAlias(linkBody);
-					const data = resolvePrettyProjectLink(plugin, linktext, sourcePath, alias);
-					if (!data) {
-						continue;
-					}
-
-					builder.add(from, to, Decoration.replace({
-						widget: new PrettyProjectLinkWidget(plugin, data),
-						inclusive: false,
-					}));
-				}
-			}
-
-			return builder.finish();
+		private buildDecorations(options: BuildPrettyProjectLinkDecorationOptions = {}): DecorationSet {
+			return buildPrettyProjectLinkDecorations(plugin, this.view, {
+				...options,
+				previousDecorations: this.decorations,
+			});
 		}
 	}, {
 		decorations: (value) => value.decorations,
-	});
+	}));
+}
+
+export function buildPrettyProjectLinkDecorations(
+	plugin: SimpleProjectViewsPlugin,
+	view: EditorView,
+	options: BuildPrettyProjectLinkDecorationOptions = {},
+): DecorationSet {
+	if (!plugin.settings.prettyLinksEnabled || !view.state.field(editorLivePreviewField, false)) {
+		return Decoration.none;
+	}
+
+	const sourcePath = getSourcePath(view);
+	if (!sourcePath) {
+		return Decoration.none;
+	}
+
+	const builder = new RangeSetBuilder<Decoration>();
+	for (const range of [view.viewport]) {
+		const text = view.state.doc.sliceString(range.from, range.to);
+		WIKI_LINK_REGEX.lastIndex = 0;
+		let match: RegExpExecArray | null;
+		while ((match = WIKI_LINK_REGEX.exec(text)) !== null) {
+			const matchedText = match[0];
+			if (matchedText.startsWith("!")) {
+				continue;
+			}
+
+			const from = range.from + match.index;
+			const to = from + matchedText.length;
+			if (!shouldRenderPrettyProjectLinkRange(view, from, to, options.renderSelectedLinks === true)) {
+				continue;
+			}
+
+			const linkBody = match[1] ?? "";
+			const [linktext, alias] = splitLinkAlias(linkBody);
+			const data = resolvePrettyProjectLink(plugin, linktext, sourcePath, alias);
+			const decoration = data
+				? createPrettyProjectLinkDecoration(plugin, data)
+				: getPreviousPrettyProjectLinkDecoration(options.previousDecorations, from, to, sourcePath, linktext, alias, options);
+			if (!decoration) {
+				continue;
+			}
+
+			builder.add(from, to, decoration);
+		}
+	}
+
+	return builder.finish();
 }
 
 export function shouldRenderPrettyProjectLinkRange(
@@ -141,6 +170,50 @@ class PrettyProjectLinkWidget extends WidgetType {
 	ignoreEvent(event: Event): boolean {
 		return shouldIgnorePrettyProjectLinkWidgetEvent(event);
 	}
+}
+
+function createPrettyProjectLinkDecoration(plugin: SimpleProjectViewsPlugin, data: PrettyProjectLinkData): Decoration {
+	return Decoration.replace({
+		widget: new PrettyProjectLinkWidget(plugin, data),
+		inclusive: false,
+		spvPrettyProjectLinkKey: getPrettyProjectLinkKey(data.sourcePath, data.linktext),
+	});
+}
+
+function getPreviousPrettyProjectLinkDecoration(
+	decorations: DecorationSet | undefined,
+	from: number,
+	to: number,
+	sourcePath: string,
+	linktext: string,
+	_label: string,
+	options: BuildPrettyProjectLinkDecorationOptions,
+): Decoration | null {
+	if (!options.preservePreviousOnMissingProject || !decorations) {
+		return null;
+	}
+
+	const key = getPrettyProjectLinkKey(sourcePath, linktext);
+	let previousDecoration: Decoration | null = null;
+	decorations.between(from, to, (decorationFrom, decorationTo, decoration) => {
+		if (decorationFrom === from && decorationTo === to && getDecorationPrettyProjectLinkKey(decoration) === key) {
+			previousDecoration = decoration;
+			return false;
+		}
+
+		return undefined;
+	});
+
+	return previousDecoration;
+}
+
+function getDecorationPrettyProjectLinkKey(decoration: Decoration): string | null {
+	const spec = decoration.spec as unknown as PrettyProjectLinkDecorationSpec;
+	return typeof spec.spvPrettyProjectLinkKey === "string" ? spec.spvPrettyProjectLinkKey : null;
+}
+
+function getPrettyProjectLinkKey(sourcePath: string, linktext: string): string {
+	return `${sourcePath}\u0000${linktext}`;
 }
 
 function getSourcePath(view: EditorView): string {

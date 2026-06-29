@@ -1,5 +1,5 @@
 import {BasesView, Menu, QueryController, setIcon, setTooltip, TFile} from "obsidian";
-import type {BasesEntry, BasesEntryGroup, BasesSortConfig} from "obsidian";
+import type {BasesEntry, BasesEntryGroup, BasesSortConfig, MenuItem} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import {getStatusColor, getStatusDisplayClassName} from "../settings";
@@ -535,10 +535,9 @@ export class ProjectBasesView extends BasesView {
 				.onClick(() => this.setTableColumnSort(column, "DESC"));
 		});
 		menu.addItem((item) => {
-			item
+			setMenuItemDestructive(item
 				.setTitle("Clear sort")
-				.setIcon("eraser")
-				.setWarning(true)
+				.setIcon("eraser"))
 				.setDisabled(!sort)
 				.onClick(() => this.clearTableColumnSort(column));
 		});
@@ -765,6 +764,28 @@ function createMenuLabel(text: string): DocumentFragment {
 	const fragment = window.activeDocument.createDocumentFragment();
 	fragment.append(text);
 	return fragment;
+}
+
+type MenuItemStyleMethodName = "setDestructive" | "setWarning";
+type MenuItemStyleComponent = Partial<Record<MenuItemStyleMethodName, (this: MenuItem, active: boolean) => MenuItem>>;
+
+function setMenuItemDestructive(item: MenuItem): MenuItem {
+	if (callMenuItemStyleMethod(item, "setDestructive")) {
+		return item;
+	}
+
+	callMenuItemStyleMethod(item, "setWarning");
+	return item;
+}
+
+function callMenuItemStyleMethod(item: MenuItem, methodName: MenuItemStyleMethodName): boolean {
+	const method = (item as MenuItemStyleComponent)[methodName];
+	if (!method) {
+		return false;
+	}
+
+	method.call(item, true);
+	return true;
 }
 
 function isBasesPropertyId(value: unknown): value is string {

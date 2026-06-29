@@ -1,4 +1,4 @@
-/* eslint-disable import/no-nodejs-modules */
+/* eslint-disable import/no-nodejs-modules -- Node test files import built-in test/assert modules. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -19,6 +19,14 @@ void test("uses default relationship property names", () => {
 		children: "children",
 	});
 	assert.deepEqual(settings.relationshipDetailFields, ["status"]);
+});
+
+void test("uses defaults when saved plugin data is null", () => {
+	const settings = normalizeSettings(null);
+
+	assert.deepEqual(settings.propertyNames, DEFAULT_SETTINGS.propertyNames);
+	assert.deepEqual(settings.relationshipPropertyNames, DEFAULT_SETTINGS.relationshipPropertyNames);
+	assert.deepEqual(settings.relationshipDetailFields, DEFAULT_SETTINGS.relationshipDetailFields);
 });
 
 void test("trims configured relationship property names", () => {

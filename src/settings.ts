@@ -181,47 +181,48 @@ export function formatListSetting(value: string[]): string {
 	return value.join(", ");
 }
 
-export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> = {}): SimpleProjectViewsSettings {
-	const propertyNames = normalizeProjectPropertyNames(settings.propertyNames);
-	const relationshipPropertyNames = normalizeProjectRelationshipPropertyNames(settings.relationshipPropertyNames);
-	const relationshipDetailFields = normalizeRelationshipDetailFields(settings.relationshipDetailFields);
-	const enabledProperties = normalizeProjectPropertyToggles(settings.enabledProperties);
-	const projectProperties = Array.isArray(settings.projectProperties)
-		? normalizeProjectPropertyDefinitions(settings.projectProperties)
+export function normalizeSettings(settings: Partial<SimpleProjectViewsSettings> | null | undefined = {}): SimpleProjectViewsSettings {
+	const savedSettings = settings ?? {};
+	const propertyNames = normalizeProjectPropertyNames(savedSettings.propertyNames);
+	const relationshipPropertyNames = normalizeProjectRelationshipPropertyNames(savedSettings.relationshipPropertyNames);
+	const relationshipDetailFields = normalizeRelationshipDetailFields(savedSettings.relationshipDetailFields);
+	const enabledProperties = normalizeProjectPropertyToggles(savedSettings.enabledProperties);
+	const projectProperties = Array.isArray(savedSettings.projectProperties)
+		? normalizeProjectPropertyDefinitions(savedSettings.projectProperties)
 		: migrateLegacyProjectProperties(propertyNames, enabledProperties);
-	const statusOptions = normalizeStatusOptions(settings.statusOptions);
-	const prettyLinkFields = normalizePrettyLinkFields(settings.prettyLinkFields, projectProperties);
+	const statusOptions = normalizeStatusOptions(savedSettings.statusOptions);
+	const prettyLinkFields = normalizePrettyLinkFields(savedSettings.prettyLinkFields, projectProperties);
 
 	return {
 		...DEFAULT_SETTINGS,
-		...settings,
+		...savedSettings,
 		propertyNames,
-		relationshipsEnabled: readBoolean(settings.relationshipsEnabled, DEFAULT_SETTINGS.relationshipsEnabled),
+		relationshipsEnabled: readBoolean(savedSettings.relationshipsEnabled, DEFAULT_SETTINGS.relationshipsEnabled),
 		relationshipPropertyNames,
 		relationshipDetailFields,
 		enabledProperties,
 		projectProperties,
 		statusOptions,
-		statusColors: normalizeStatusColors(settings.statusColors, statusOptions),
-		statusDisplay: normalizeStatusDisplay(settings.statusDisplay),
-		prettyLinksEnabled: readBoolean(settings.prettyLinksEnabled, DEFAULT_SETTINGS.prettyLinksEnabled),
-		prettyLinkShowPropertyNames: readBoolean(settings.prettyLinkShowPropertyNames, DEFAULT_SETTINGS.prettyLinkShowPropertyNames),
+		statusColors: normalizeStatusColors(savedSettings.statusColors, statusOptions),
+		statusDisplay: normalizeStatusDisplay(savedSettings.statusDisplay),
+		prettyLinksEnabled: readBoolean(savedSettings.prettyLinksEnabled, DEFAULT_SETTINGS.prettyLinksEnabled),
+		prettyLinkShowPropertyNames: readBoolean(savedSettings.prettyLinkShowPropertyNames, DEFAULT_SETTINGS.prettyLinkShowPropertyNames),
 		prettyLinkFields,
-		projectMatchType: normalizeProjectMatchType(settings.projectMatchType),
-		projectTag: typeof settings.projectTag === "string" ? normalizeProjectTag(settings.projectTag) : DEFAULT_SETTINGS.projectTag,
-		projectPropertyName: typeof settings.projectPropertyName === "string" ? settings.projectPropertyName.trim() : DEFAULT_SETTINGS.projectPropertyName,
-		projectPropertyValue: typeof settings.projectPropertyValue === "string" ? settings.projectPropertyValue.trim() : DEFAULT_SETTINGS.projectPropertyValue,
-		projectFolder: normalizeProjectFolder(settings.projectFolder),
-		noteToolbarPosition: normalizeProjectToolbarPosition(settings.noteToolbarPosition),
-		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(settings.projectCreationPathTemplate),
-		projectCreationTemplatePath: normalizeProjectTemplatePath(settings.projectCreationTemplatePath),
-		boardColumnWidth: normalizeBoardColumnWidth(settings.boardColumnWidth),
-		colorfulBoard: normalizeColorfulBoard(settings.colorfulBoard),
-		boardCardLayout: normalizeBoardCardLayout(settings.boardCardLayout),
-		showTableColumnDividers: normalizeShowTableColumnDividers(settings.showTableColumnDividers),
-		boardColumnOrder: normalizeStringList(settings.boardColumnOrder),
-		boardCardOrder: normalizeStringList(settings.boardCardOrder),
-		collapsedBoardColumns: normalizeStringList(settings.collapsedBoardColumns),
+		projectMatchType: normalizeProjectMatchType(savedSettings.projectMatchType),
+		projectTag: typeof savedSettings.projectTag === "string" ? normalizeProjectTag(savedSettings.projectTag) : DEFAULT_SETTINGS.projectTag,
+		projectPropertyName: typeof savedSettings.projectPropertyName === "string" ? savedSettings.projectPropertyName.trim() : DEFAULT_SETTINGS.projectPropertyName,
+		projectPropertyValue: typeof savedSettings.projectPropertyValue === "string" ? savedSettings.projectPropertyValue.trim() : DEFAULT_SETTINGS.projectPropertyValue,
+		projectFolder: normalizeProjectFolder(savedSettings.projectFolder),
+		noteToolbarPosition: normalizeProjectToolbarPosition(savedSettings.noteToolbarPosition),
+		projectCreationPathTemplate: normalizeProjectCreationPathTemplate(savedSettings.projectCreationPathTemplate),
+		projectCreationTemplatePath: normalizeProjectTemplatePath(savedSettings.projectCreationTemplatePath),
+		boardColumnWidth: normalizeBoardColumnWidth(savedSettings.boardColumnWidth),
+		colorfulBoard: normalizeColorfulBoard(savedSettings.colorfulBoard),
+		boardCardLayout: normalizeBoardCardLayout(savedSettings.boardCardLayout),
+		showTableColumnDividers: normalizeShowTableColumnDividers(savedSettings.showTableColumnDividers),
+		boardColumnOrder: normalizeStringList(savedSettings.boardColumnOrder),
+		boardCardOrder: normalizeStringList(savedSettings.boardCardOrder),
+		collapsedBoardColumns: normalizeStringList(savedSettings.collapsedBoardColumns),
 	};
 }
 

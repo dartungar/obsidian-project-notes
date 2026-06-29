@@ -1,5 +1,5 @@
 import {Menu, Notice} from "obsidian";
-import type {TFile} from "obsidian";
+import type {EventRef, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import {updateProjectProperty} from "../project-metadata";
@@ -8,6 +8,14 @@ import {getProjectPropertyById, isProjectPropertyEmpty} from "../project-propert
 interface NativeNoteActionsItemOptions {
 	createTitle?: (openMenu: (event: MouseEvent | KeyboardEvent) => void) => string | DocumentFragment;
 }
+
+interface ProjectMetadataRefreshWaitOptions {
+	maxPollAttempts?: number;
+	pollDelayMs?: number;
+}
+
+const DEFAULT_METADATA_REFRESH_MAX_POLL_ATTEMPTS = 40;
+const DEFAULT_METADATA_REFRESH_POLL_DELAY_MS = 50;
 
 export function showProjectLinkMenu(
 	event: MouseEvent,
@@ -196,7 +204,7 @@ async function updateProjectLinkProperty(
 ): Promise<void> {
 	try {
 		await updateProjectProperty(plugin.app, project.file, propertyName, value);
-		waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(plugin);
+		waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(plugin, project.file, propertyName, value);
 	} catch (error) {
 		console.error("Simple project views: could not update pretty link project property", error);
 		new Notice("Could not update project property");
@@ -204,7 +212,127 @@ async function updateProjectLinkProperty(
 }
 
 export function waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
-	_plugin: SimpleProjectViewsPlugin,
-): void {
-	// Project surfaces refresh from the metadataCache.changed listener after Obsidian re-indexes the edited project note.
+	plugin: SimpleProjectViewsPlugin,
+	file: TFile,
+	propertyName?: string,
+	value?: string | number | null,
+	options: ProjectMetadataRefreshWaitOptions = {},
+): () => void {
+	const metadataCache = plugin.app.metadataCache;
+	let isListening = true;
+	let isCancelled = false;
+	let hasTargetMetadataChanged = false;
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let pollAttempts = 0;
+	const eventRefs: EventRef[] = [];
+	const maxPollAttempts = options.maxPollAttempts ?? DEFAULT_METADATA_REFRESH_MAX_POLL_ATTEMPTS;
+	const pollDelayMs = options.pollDelayMs ?? DEFAULT_METADATA_REFRESH_POLL_DELAY_MS;
+	const stopListening = () => {
+		if (!isListening) {
+			return;
+		}
+
+		isListening = false;
+		for (const eventRef of eventRefs) {
+			metadataCache.offref(eventRef);
+		}
+	};
+	const clearPendingPoll = () => {
+		if (timeoutId === null) {
+			return;
+		}
+
+		clearTimeout(timeoutId);
+		timeoutId = null;
+	};
+	const refreshAfterMetadataResolved = () => {
+		stopListening();
+		clearPendingPoll();
+		if (!isCancelled) {
+			plugin.refreshProjectSurfaces();
+		}
+	};
+	const isWaitingForPropertyValue = propertyName !== undefined;
+	const shouldRefresh = () => {
+		return !isWaitingForPropertyValue || isProjectPropertyValueVisible(plugin, file, propertyName, value ?? null);
+	};
+	const checkOrScheduleRefresh = () => {
+		if (isCancelled) {
+			return;
+		}
+
+		if (shouldRefresh() || pollAttempts >= maxPollAttempts) {
+			refreshAfterMetadataResolved();
+			return;
+		}
+
+		if (timeoutId !== null) {
+			return;
+		}
+
+		pollAttempts += 1;
+		timeoutId = setTimeout(() => {
+			timeoutId = null;
+			checkOrScheduleRefresh();
+		}, pollDelayMs);
+	};
+
+	eventRefs.push(metadataCache.on("changed", (changedFile) => {
+		if (isCancelled || changedFile.path !== file.path) {
+			return;
+		}
+
+		hasTargetMetadataChanged = true;
+		if (isWaitingForPropertyValue) {
+			checkOrScheduleRefresh();
+		}
+	}));
+	eventRefs.push(metadataCache.on("resolved", () => {
+		if (!hasTargetMetadataChanged) {
+			return;
+		}
+
+		checkOrScheduleRefresh();
+	}));
+	for (const eventRef of eventRefs) {
+		plugin.registerEvent(eventRef);
+	}
+
+	if (isWaitingForPropertyValue) {
+		checkOrScheduleRefresh();
+	}
+
+	return () => {
+		isCancelled = true;
+		stopListening();
+		clearPendingPoll();
+	};
+}
+
+function isProjectPropertyValueVisible(
+	plugin: SimpleProjectViewsPlugin,
+	file: TFile,
+	propertyName: string | undefined,
+	value: string | number | null,
+): boolean {
+	if (!propertyName) {
+		return true;
+	}
+
+	const project = plugin.projectIndex.getProject(file);
+	if (!project) {
+		return false;
+	}
+
+	const expectedValue = value === null ? "" : String(value);
+	if (propertyName === plugin.settings.propertyNames.status) {
+		return project.status === expectedValue;
+	}
+
+	const property = project.properties.find((candidate) => candidate.definition.name === propertyName);
+	if (value === null || value === "") {
+		return !property || isProjectPropertyEmpty(property);
+	}
+
+	return property !== undefined && String(property.value || property.numberValue || "") === expectedValue;
 }

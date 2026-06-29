@@ -1,4 +1,4 @@
-/* eslint-disable import/no-nodejs-modules */
+/* eslint-disable import/no-nodejs-modules -- Node test files import built-in test/assert modules. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {getBoardClassName, normalizeBoardCardLayout, normalizeColorfulBoard} from "./board-appearance";
