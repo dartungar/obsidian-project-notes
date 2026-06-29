@@ -1,26 +1,30 @@
 # Project Notes
 
-Project Notes adds project controls, relationship links, pretty project links, and custom Bases views to ordinary Obsidian notes.
+Project Notes is an opinionated plugin for simple, lightweight note-based project management (1 note = 1 project).
 
-Your Markdown files stay the source of truth. The plugin reads and writes note properties, recognizes project notes using your criteria, and makes project metadata easier to edit from notes, links, lists, tables, and boards.
+Your Markdown files stay the source of truth. The plugin only provides convenience and visuals, and aims to lease as little footprint as possible.
 
 ## Screenshots
+<img width="736" height="532" alt="image" src="https://github.com/user-attachments/assets/64b05645-7fe2-4e12-b6ac-c958ee774fff" />
 
-`<screenshot of a project note with the note bar, status, progress, and relationships>`
 
-`<screenshot of a Project Notes board grouped by status>`
+<img width="1463" height="486" alt="image" src="https://github.com/user-attachments/assets/60cb8dd2-1845-4e17-b16c-e97897f5ce82" />
 
-`<screenshot of a Project Notes table with editable project properties>`
 
-`<screenshot of pretty project links inside a note>`
+<img width="412" height="383" alt="image" src="https://github.com/user-attachments/assets/6cc5ffe4-81a3-438d-81ce-1c7cc21dca9d" />
 
-`<screenshot of Project Notes settings tabs>` 
+
+<img width="1043" height="310" alt="image" src="https://github.com/user-attachments/assets/f94d10d8-9150-45ab-bab7-048810b1ce9b" />
+
+
+<img width="672" height="547" alt="image" src="https://github.com/user-attachments/assets/c49f1231-d439-4f81-8492-69af4be63772" />
+
 
 ## How it works
 
 Project Notes treats selected notes as projects. By default, any note tagged `#project` is a project, but you can also match projects by a note property or by folder.
 
-Project metadata is stored in frontmatter. Status, icon, progress, due date, delegated owner, follow-up date, next action, blocked reason, parent project, and child projects are all plain note properties that you can rename or customize.
+Project metadata is stored in frontmatter. "Status" is required for board, other properties can be added/deleted as needed.
 
 The plugin adds focused project UI on top of those properties:
 
