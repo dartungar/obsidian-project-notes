@@ -182,6 +182,43 @@ export class TFile {
 }
 
 export class BasesView {
+	app = new App();
+	config = new BasesViewConfig();
+
+	constructor(_controller?: QueryController) {
+	}
+
+	register(_callback: () => void): void {
+	}
+}
+
+export class BasesViewConfig {
+	private values = new Map<string, unknown>();
+
+	get(key: string): unknown {
+		return this.values.get(key);
+	}
+
+	set(key: string, value: unknown): void {
+		if (value === null) {
+			this.values.delete(key);
+			return;
+		}
+
+		this.values.set(key, value);
+	}
+
+	getOrder(): string[] {
+		return [];
+	}
+
+	getSort(): Array<{property: string; direction: "ASC" | "DESC"}> {
+		return [];
+	}
+
+	getDisplayName(propertyId: string): string {
+		return propertyId;
+	}
 }
 
 export class Menu {

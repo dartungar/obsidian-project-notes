@@ -1,7 +1,7 @@
 {
 	"id": "project-notes",
 	"name": "Project Notes",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"minAppVersion": "1.10.0",
 	"description": "Tools for simple note-based project management.",
 	"author": "dartungar",

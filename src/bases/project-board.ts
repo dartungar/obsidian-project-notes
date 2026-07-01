@@ -139,7 +139,7 @@ function renderBoardCard(
 	cardEl.draggable = true;
 	cardEl.addEventListener("pointerdown", (event) => {
 		if (isCardDragSuppressed(event.target)) {
-			cardEl.draggable = false;
+			suppressCardDragUntilPointerEnds(cardEl);
 		}
 	}, {capture: true});
 	cardEl.addEventListener("pointerup", () => {
@@ -240,6 +240,19 @@ function isCardDragSuppressed(target: EventTarget | null): boolean {
 	}
 
 	return target.closest("input, select, textarea, button, .spv-project-controls, .spv-board-card-edit") !== null;
+}
+
+function suppressCardDragUntilPointerEnds(cardEl: HTMLElement): void {
+	cardEl.draggable = false;
+	const ownerDocument = cardEl.ownerDocument;
+	const restoreCardDrag = () => {
+		cardEl.draggable = true;
+		ownerDocument.removeEventListener("pointerup", restoreCardDrag, true);
+		ownerDocument.removeEventListener("pointercancel", restoreCardDrag, true);
+	};
+
+	ownerDocument.addEventListener("pointerup", restoreCardDrag, true);
+	ownerDocument.addEventListener("pointercancel", restoreCardDrag, true);
 }
 
 function isCardContextMenuSuppressed(target: EventTarget | null): boolean {

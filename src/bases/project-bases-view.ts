@@ -72,6 +72,10 @@ export class ProjectBasesView extends BasesView {
 	}
 
 	public render(options: {force?: boolean} = {}): void {
+		if (!this.data) {
+			return;
+		}
+
 		const viewProperties = this.getViewProperties();
 		const groups = this.variant === "board" ? [] : this.getProjectGroups();
 		const projects = this.variant === "board"
