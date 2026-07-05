@@ -1,6 +1,12 @@
 export type ProjectPropertyValueType = "text" | "number" | "date" | "datetime";
-export type ProjectPropertyRenderMode = "text" | "textarea" | "progress" | "stars" | "date" | "datetime";
+export type ProjectPropertyRenderMode = "text" | "textarea" | "progress" | "stars" | "pips" | "icons" | "date" | "datetime";
 export type ProjectPropertyLabelMode = "name" | "icon";
+
+export interface IconScaleDefinition {
+	min: number;
+	max: number;
+	step: number;
+}
 
 export interface ProjectPropertyDefinition {
 	id: string;
@@ -104,13 +110,15 @@ export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 ];
 
 const PROPERTY_TYPES: ProjectPropertyValueType[] = ["text", "number", "date", "datetime"];
-const PROPERTY_RENDER_MODES: ProjectPropertyRenderMode[] = ["text", "textarea", "progress", "stars", "date", "datetime"];
+const PROPERTY_RENDER_MODES: ProjectPropertyRenderMode[] = ["text", "textarea", "progress", "stars", "pips", "icons", "date", "datetime"];
 const PROPERTY_LABEL_MODES: ProjectPropertyLabelMode[] = ["name", "icon"];
+const ICON_SCALE_RENDER_MODES = new Set<ProjectPropertyRenderMode>(["stars", "pips", "icons"]);
 
 const DEFAULT_MIN = 0;
 const DEFAULT_MAX = 100;
 const DEFAULT_STEP = 5;
-const DEFAULT_STAR_MAX = 5;
+const DEFAULT_ICON_SCALE_MAX = 5;
+const MAX_ICON_SCALE_VALUES = 12;
 
 export function getPropertyTypeLabel(type: ProjectPropertyValueType): string {
 	switch (type) {
@@ -133,12 +141,16 @@ export function getPropertyRenderModeLabel(render: ProjectPropertyRenderMode): s
 			return "Progress bar";
 		case "stars":
 			return "Stars";
+		case "pips":
+			return "Pips";
+		case "icons":
+			return "Icons";
 		case "date":
 			return "Date";
 		case "datetime":
 			return "Date/time";
 		case "text":
-			return "Text field";
+			return "Text";
 	}
 }
 
@@ -154,7 +166,7 @@ export function getPropertyLabelModeLabel(mode: ProjectPropertyLabelMode): strin
 export function getCompatibleRenderModes(type: ProjectPropertyValueType): ProjectPropertyRenderMode[] {
 	switch (type) {
 		case "number":
-			return ["progress", "stars", "text"];
+			return ["progress", "stars", "pips", "icons", "text"];
 		case "date":
 			return ["date", "text"];
 		case "datetime":
@@ -185,10 +197,10 @@ export function normalizeProjectPropertyDefinition(
 	const name = readString(value.name);
 	const icon = readString(value.icon);
 	const labelMode = normalizePropertyLabelMode(value.labelMode);
-	const defaultMax = render === "stars" ? DEFAULT_STAR_MAX : DEFAULT_MAX;
+	const defaultMax = isIconScaleRenderMode(render) ? DEFAULT_ICON_SCALE_MAX : DEFAULT_MAX;
 	const min = normalizeNumber(value.min, DEFAULT_MIN);
 	const max = Math.max(min, normalizeNumber(value.max, defaultMax));
-	const step = Math.max(1, normalizeNumber(value.step, render === "stars" ? 1 : DEFAULT_STEP));
+	const step = Math.max(1, normalizeNumber(value.step, isIconScaleRenderMode(render) ? 1 : DEFAULT_STEP));
 
 	return {
 		id,
@@ -297,7 +309,7 @@ export function isProjectPropertyEmpty(property: ProjectPropertyValue): boolean 
 }
 
 export function isNumericProperty(definition: ProjectPropertyDefinition): boolean {
-	return definition.type === "number" || definition.render === "progress" || definition.render === "stars";
+	return definition.type === "number" || definition.render === "progress" || isIconScaleRenderMode(definition.render);
 }
 
 export function formatProjectPropertyValue(property: ProjectPropertyValue): string {
@@ -324,6 +336,34 @@ export function getProjectPropertyProgressPercent(property: ProjectPropertyValue
 	}
 
 	return clampNumber(((value - property.definition.min) / range) * 100, 0, 100);
+}
+
+export function isIconScaleRenderMode(render: ProjectPropertyRenderMode): boolean {
+	return ICON_SCALE_RENDER_MODES.has(render);
+}
+
+export function getIconScaleValues(definition: IconScaleDefinition): number[] {
+	const step = Math.max(1, definition.step);
+	const start = definition.min === 0 ? definition.min + step : definition.min;
+	const values: number[] = [];
+
+	for (let value = start; value <= definition.max; value += step) {
+		values.push(formatScaleValue(value));
+	}
+
+	return values.slice(0, MAX_ICON_SCALE_VALUES);
+}
+
+export function getIconScaleRenderIcon(definition: Pick<ProjectPropertyDefinition, "render" | "icon">): string {
+	if (definition.render === "stars") {
+		return "star";
+	}
+
+	if (definition.render === "pips") {
+		return "circle";
+	}
+
+	return definition.icon.trim() || "circle";
 }
 
 export function getProjectPropertyById(
@@ -460,6 +500,10 @@ function clampNumber(value: number, min: number, max: number): number {
 
 function formatNumber(value: number): string {
 	return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+}
+
+function formatScaleValue(value: number): number {
+	return Number.isInteger(value) ? value : Number(value.toFixed(2));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -4,6 +4,7 @@ import "./bases/project-board.test";
 import "./project-frontmatter.test";
 import "./main.typecheck.test";
 import "./settings.test";
+import "./project-properties.test";
 import "./project-relationships.test";
 import "./ui/project-icon.test";
 import "./ui/pretty-project-link-fields.test";
