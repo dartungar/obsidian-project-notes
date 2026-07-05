@@ -22,15 +22,16 @@ Icon choice:
 
 ## User Experience
 
-In **Settings → Project Notes → Properties**, number properties get these render choices: **Progress bar**, **Stars**, **Pips**, **Icons**, and **Text field**. The existing **Label icon** setting continues to control the summary label when **View label** is **Icon**, and it also becomes the glyph for the generic **Icons** number display.
+In **Settings → Project Notes → Properties**, number properties get these render choices: **Progress bar**, **Stars**, **Pips**, **Icons**, and **Text**. The existing **Label icon** setting continues to control the summary label when **View label** is **Icon**, and it also becomes the glyph for the generic **Icons** number display.
 
-Icon-scale displays are discrete integer scales. They show the same **Minimum** and **Maximum** settings that stars currently use. **Step** remains only for progress bars because progress uses a slider while repeated icons use direct integer choices.
+Icon-scale displays are discrete stepped scales. They show **Minimum**, **Maximum**, and **Step** settings. **Step** defaults to `1`, preserving today's star behavior, and controls the distance between selectable icon values. With the default `min=0`, `max=5`, and `step=1`, stars still render five buttons for values `1` through `5`.
 
 Editing behavior:
 
-- Each icon represents one integer value in the configured range.
+- Each icon represents one selectable stepped value in the configured range.
+- For scales whose minimum is `0`, the first icon represents `min + step`, so the zero state remains no filled icons.
 - Filled icons indicate values less than or equal to the current value.
-- Clicking an icon writes that integer value.
+- Clicking an icon writes that stepped value.
 - The clear button removes the note property value.
 
 Readonly and summary behavior:
@@ -47,11 +48,11 @@ Extend `ProjectPropertyRenderMode` with `pips` and `icons`. Update render-mode n
 Refactor the current star-specific rendering in `src/ui/project-controls.ts` into shared icon-scale helpers:
 
 - Resolve the glyph from the render mode and property definition.
-- Generate integer scale values from the configured min/max.
+- Generate scale values from the configured min/max/step, following the existing star convention that zero-min scales start at the first step above zero.
 - Render edit buttons for editable controls.
 - Render filled/unfilled icons for readonly controls and summaries.
 
-The existing CSS classes can be generalized from `spv-star-*` toward icon-scale classes while keeping compatibility where practical. The visual styling should stay close to the current stars treatment, with filled icons using `var(--interactive-accent)` and unfilled icons using muted text color.
+The existing CSS classes can be generalized from `spv-star-*` toward icon-scale classes while keeping compatibility where practical. Keep the existing 12-icon display cap. The visual styling should stay close to the current stars treatment, with filled icons using `var(--interactive-accent)` and unfilled icons using muted text color.
 
 ## Data Flow
 
@@ -69,6 +70,8 @@ Add focused tests for:
 
 - `pips` and `icons` as compatible number render modes.
 - normalization accepts valid new render modes and rejects them for non-number types.
+- icon-scale values are generated from min/max/step, with `1` as the default step.
+- zero-min icon-scale values begin at the first step above zero, preserving existing star displays.
 - icon-scale glyph resolution uses `star`, `circle`, and the property icon fallback rules.
 - table cells render all icon-scale modes through the shared editable icon-scale control.
 - existing settings normalization keeps saved `stars` properties working.
