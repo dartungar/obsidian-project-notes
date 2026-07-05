@@ -1,9 +1,12 @@
 import {App, setIcon, setTooltip} from "obsidian";
 import {
 	formatProjectPropertyValue,
+	getIconScaleRenderIcon,
+	getIconScaleValues,
 	getProjectPropertyById,
 	getProjectPropertyDefinitionById,
 	getProjectPropertyProgressPercent,
+	isIconScaleRenderMode,
 	isNumericProperty,
 	isProjectPropertyEmpty,
 	normalizePropertyInputValue,
@@ -202,8 +205,8 @@ function createPropertySummaryItem(
 		return;
 	}
 
-	if (property.definition.render === "stars") {
-		createStarsSummaryItem(containerEl, property, label, showLabel);
+	if (isIconScaleRenderMode(property.definition.render)) {
+		createIconScaleSummaryItem(containerEl, property, label, showLabel);
 		return;
 	}
 
@@ -235,29 +238,24 @@ function createProgressSummaryItem(
 	});
 }
 
-function createStarsSummaryItem(
+function createIconScaleSummaryItem(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
 	showLabel: boolean,
 ): void {
-	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-stars"});
+	const itemEl = containerEl.createDiv({
+		cls: `spv-summary-item spv-summary-icon-scale spv-summary-${sanitizePropertyCssClass(property.definition.render)}`,
+	});
 	if (showLabel) {
 		addPropertySummaryLabelClass(itemEl, property);
 	}
 	createPropertySummaryLabel(itemEl, property, label, showLabel);
-	const starsEl = itemEl.createSpan({
-		cls: "spv-summary-value spv-star-control spv-star-control-readonly",
+	const scaleEl = itemEl.createSpan({
+		cls: "spv-summary-value spv-icon-scale-control spv-icon-scale-control-readonly spv-star-control spv-star-control-readonly",
 		attr: {"aria-label": `${label}: ${formatProjectPropertyValue(property)}`},
 	});
-
-	for (const starValue of getStarValues(property.definition)) {
-		const starEl = starsEl.createSpan({
-			cls: `spv-star-display${property.numberValue !== null && property.numberValue >= starValue ? " is-filled" : ""}`,
-			attr: {"aria-hidden": "true"},
-		});
-		setIcon(starEl, "star");
-	}
+	renderIconScaleDisplays(scaleEl, property);
 }
 
 function createScalarSummaryItem(
@@ -326,8 +324,8 @@ function createPropertyField(
 		return createProgressField(containerEl, property, label ?? property.definition.label, onChange);
 	}
 
-	if (property.definition.render === "stars") {
-		return createStarsField(containerEl, property, label ?? property.definition.label, onChange);
+	if (isIconScaleRenderMode(property.definition.render)) {
+		return createIconScaleField(containerEl, property, label ?? property.definition.label, onChange);
 	}
 
 	if (property.definition.render === "textarea") {
@@ -449,34 +447,34 @@ function createProgressField(
 	return inputEl;
 }
 
-function createStarsField(
+function createIconScaleField(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
 	label: string,
 	onChange: (value: ProjectPropertyInputValue) => Promise<void>,
 ): HTMLButtonElement {
 	const fieldEl = createField(containerEl, label, property.definition, property.numberValue === null);
-	const starsEl = fieldEl.createDiv({cls: "spv-star-control"});
+	const scaleEl = fieldEl.createDiv({cls: "spv-icon-scale-control spv-star-control"});
 	let firstButtonEl: HTMLButtonElement | null = null;
 
-	for (const starValue of getStarValues(property.definition)) {
-		const starButtonEl = starsEl.createEl("button", {
-			cls: `clickable-icon spv-star-button${property.numberValue !== null && property.numberValue >= starValue ? " is-filled" : ""}`,
+	for (const scaleValue of getIconScaleValues(property.definition)) {
+		const buttonEl = scaleEl.createEl("button", {
+			cls: `clickable-icon spv-icon-scale-button spv-star-button${isIconScaleFilled(property, scaleValue) ? " is-filled" : ""}`,
 			attr: {
 				type: "button",
-				"aria-label": `${label}: ${starValue}`,
+				"aria-label": `${label}: ${scaleValue}`,
 			},
 		});
-		setIcon(starButtonEl, "star");
-		starButtonEl.addEventListener("click", () => {
-			void onChange(starValue);
+		setIcon(buttonEl, getIconScaleRenderIcon(property.definition));
+		buttonEl.addEventListener("click", () => {
+			void onChange(scaleValue);
 		});
 
-		firstButtonEl ??= starButtonEl;
+		firstButtonEl ??= buttonEl;
 	}
 
-	const clearButtonEl = starsEl.createEl("button", {
-		cls: "clickable-icon spv-star-clear",
+	const clearButtonEl = scaleEl.createEl("button", {
+		cls: "clickable-icon spv-icon-scale-clear spv-star-clear",
 		attr: {
 			type: "button",
 			"aria-label": `Clear ${label}`,
@@ -535,8 +533,8 @@ export function renderProjectPropertyDisplay(
 		return;
 	}
 
-	if (property.definition.render === "stars") {
-		createStarsDisplay(containerEl, property, label);
+	if (isIconScaleRenderMode(property.definition.render)) {
+		createIconScaleDisplay(containerEl, property, label);
 		return;
 	}
 
@@ -562,22 +560,32 @@ function createProgressDisplay(containerEl: HTMLElement, property: ProjectProper
 	});
 }
 
-function createStarsDisplay(containerEl: HTMLElement, property: ProjectPropertyValue, label: string): void {
+function createIconScaleDisplay(containerEl: HTMLElement, property: ProjectPropertyValue, label: string): void {
 	const fieldEl = createField(containerEl, label, property.definition, property.numberValue === null);
-	const starsEl = fieldEl.createDiv({cls: "spv-star-control spv-star-control-readonly"});
-
-	for (const starValue of getStarValues(property.definition)) {
-		const starEl = starsEl.createSpan({
-			cls: `spv-star-display${property.numberValue !== null && property.numberValue >= starValue ? " is-filled" : ""}`,
-			attr: {"aria-hidden": "true"},
-		});
-		setIcon(starEl, "star");
-	}
-
-	starsEl.createSpan({
-		cls: "spv-star-value",
+	const scaleEl = fieldEl.createDiv({
+		cls: "spv-icon-scale-control spv-icon-scale-control-readonly spv-star-control spv-star-control-readonly",
+		attr: {"aria-label": `${label}: ${property.numberValue === null ? "Unset" : formatProjectPropertyValue(property)}`},
+	});
+	renderIconScaleDisplays(scaleEl, property);
+	scaleEl.createSpan({
+		cls: "spv-icon-scale-value spv-star-value",
 		text: property.numberValue === null ? "Unset" : formatProjectPropertyValue(property),
 	});
+}
+
+function renderIconScaleDisplays(containerEl: HTMLElement, property: ProjectPropertyValue): void {
+	const icon = getIconScaleRenderIcon(property.definition);
+	for (const scaleValue of getIconScaleValues(property.definition)) {
+		const iconEl = containerEl.createSpan({
+			cls: `spv-icon-scale-display spv-star-display${isIconScaleFilled(property, scaleValue) ? " is-filled" : ""}`,
+			attr: {"aria-hidden": "true"},
+		});
+		setIcon(iconEl, icon);
+	}
+}
+
+function isIconScaleFilled(property: ProjectPropertyValue, scaleValue: number): boolean {
+	return property.numberValue !== null && property.numberValue >= scaleValue;
 }
 
 function createScalarDisplay(containerEl: HTMLElement, property: ProjectPropertyValue, label: string): void {
@@ -641,18 +649,6 @@ function getInputValue(property: ProjectPropertyValue): string {
 	}
 
 	return property.value;
-}
-
-function getStarValues(definition: ProjectPropertyDefinition): number[] {
-	const min = Math.max(1, Math.ceil(definition.min));
-	const max = Math.max(min, Math.floor(definition.max));
-	const values: number[] = [];
-
-	for (let value = min; value <= max; value += 1) {
-		values.push(value);
-	}
-
-	return values.slice(0, 12);
 }
 
 function ensureOption(options: string[], value: string): string[] {

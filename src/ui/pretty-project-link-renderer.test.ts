@@ -107,6 +107,41 @@ void test("hides pretty link property names when disabled", () => {
 	assert.deepEqual(findTextByClass(linkEl as unknown as TestElement, "spv-status-badge"), ["done"]);
 });
 
+void test("renders icon scale fields on pretty links", () => {
+	const file = makeFile("Projects/Apollo.md", "Apollo");
+	const settings = normalizeSettings({
+		projectProperties: [
+			makeNumberProperty("complexity", "complexity", "Complexity", "pips", "circle", 5),
+			makeNumberProperty("priority", "priority", "Priority", "icons", "flag", 5),
+		],
+		prettyLinkFields: ["complexity", "priority"],
+	});
+	const project = makeProject(file);
+	project.properties = settings.projectProperties.map((definition, index) => ({
+		definition,
+		raw: index === 0 ? 2 : 3,
+		value: index === 0 ? "2" : "3",
+		numberValue: index === 0 ? 2 : 3,
+	}));
+	const plugin = makePlugin(file, project, settings);
+	const containerEl = createTestElement("div");
+
+	const linkEl = renderPrettyProjectLink(containerEl as unknown as HTMLElement, plugin, {
+		file,
+		project,
+		sourcePath: "Daily.md",
+		linktext: "Projects/Apollo",
+		label: "Apollo",
+	});
+
+	assert.equal(countByClass(linkEl as unknown as TestElement, "spv-icon-scale-display"), 10);
+	assert.equal(countByClass(linkEl as unknown as TestElement, "is-filled"), 5);
+	assert.deepEqual(findAttrByClass(linkEl as unknown as TestElement, "spv-icon-scale-control-readonly", "aria-label"), [
+		"Complexity: 2",
+		"Priority: 3",
+	]);
+});
+
 function makePlugin(
 	resolvedFile: TFile | null,
 	project: ProjectInfo | null,
@@ -140,6 +175,28 @@ function makeProject(file: TFile): ProjectInfo {
 		status: "todo",
 		properties: [],
 		relationships: {parent: null, children: []},
+	};
+}
+
+function makeNumberProperty(
+	id: string,
+	name: string,
+	label: string,
+	render: "pips" | "icons",
+	icon: string,
+	max: number,
+) {
+	return {
+		id,
+		name,
+		label,
+		type: "number" as const,
+		render,
+		icon,
+		labelMode: "name" as const,
+		min: 0,
+		max,
+		step: 1,
 	};
 }
 
@@ -204,5 +261,20 @@ function findTextByClass(element: TestElement, className: string): string[] {
 	return [
 		...ownText,
 		...element.children.flatMap((childEl) => findTextByClass(childEl, className)),
+	];
+}
+
+function countByClass(element: TestElement, className: string): number {
+	const ownCount = element.className.split(" ").includes(className) ? 1 : 0;
+	return ownCount + element.children.reduce((count, childEl) => count + countByClass(childEl, className), 0);
+}
+
+function findAttrByClass(element: TestElement, className: string, attr: string): string[] {
+	const ownValue = element.className.split(" ").includes(className) && element.attributes[attr]
+		? [element.attributes[attr]]
+		: [];
+	return [
+		...ownValue,
+		...element.children.flatMap((childEl) => findAttrByClass(childEl, className, attr)),
 	];
 }
