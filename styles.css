@@ -597,11 +597,14 @@ button.spv-icon-picker-button {
 	width: 28px;
 }
 
+.spv-icon-scale-control,
 .spv-star-control {
 	flex-wrap: wrap;
 	gap: 1px;
 }
 
+button.spv-icon-scale-button,
+button.spv-icon-scale-clear,
 button.spv-star-button,
 button.spv-star-clear {
 	color: var(--text-faint);
@@ -610,16 +613,21 @@ button.spv-star-clear {
 	width: 24px;
 }
 
+button.spv-icon-scale-button.is-filled,
 button.spv-star-button.is-filled,
+.spv-icon-scale-display.is-filled,
 .spv-star-display.is-filled {
 	color: var(--interactive-accent);
 }
 
+button.spv-icon-scale-button.is-filled svg,
 button.spv-star-button.is-filled svg,
+.spv-icon-scale-display.is-filled svg,
 .spv-star-display.is-filled svg {
 	fill: currentColor;
 }
 
+.spv-icon-scale-display,
 .spv-star-display,
 .spv-project-icon,
 .spv-table-sort-icon,
@@ -659,6 +667,7 @@ button.spv-star-button.is-filled svg,
 }
 
 .spv-project-icon svg,
+.spv-icon-scale-display svg,
 .spv-star-display svg,
 .spv-table-sort-icon svg,
 .spv-table-property-icon svg {
