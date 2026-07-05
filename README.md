@@ -21,7 +21,7 @@ The **Create project** command uses a configurable path template and optional Ma
 
 Status, progress, and due date are the default properties. Status is special because it drives project controls and board columns. Project icon is a separate built-in field that can be turned off.
 
-Other project properties can be added in **Settings → Project Notes → Properties** and then renamed, retyped, reordered, and rendered in different ways. Property values can render as text fields, text areas, dates, date/times, progress bars, or stars.
+Other project properties can be added in **Settings → Project Notes → Properties** and then renamed, retyped, reordered, and rendered in different ways. Property values can render as text, text areas, dates, date/times, progress bars, stars, pips, or reusable icon scales.
 
 ```yaml
 ---
