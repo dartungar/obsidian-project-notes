@@ -14,13 +14,14 @@ import {
 	getPropertyRenderModeLabel,
 	getPropertyTypeLabel,
 	getPropertyTypes,
+	isIconScaleRenderMode,
 	LEGACY_PROJECT_PROPERTIES,
 	normalizeProjectPropertyDefinitions,
 	normalizePropertyLabelMode,
 	normalizePropertyRenderMode,
 	normalizePropertyType,
 } from "./project-properties";
-import type {ProjectPropertyDefinition} from "./project-properties";
+import type {ProjectPropertyDefinition, ProjectPropertyRenderMode} from "./project-properties";
 import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 
 export type ProjectMatchType = "tag" | "property" | "folder";
@@ -314,6 +315,22 @@ export function getStatusDisplayLabel(mode: StatusDisplayMode): string {
 		case "text":
 			return "Text";
 	}
+}
+
+export function shouldShowProjectPropertyRangeSettings(render: ProjectPropertyRenderMode): boolean {
+	return render === "progress" || isIconScaleRenderMode(render);
+}
+
+export function shouldShowProjectPropertyStepSetting(render: ProjectPropertyRenderMode): boolean {
+	return render === "progress" || isIconScaleRenderMode(render);
+}
+
+export function getProjectPropertyMaximumSettingDescription(render: ProjectPropertyRenderMode): string {
+	return isIconScaleRenderMode(render) ? "Largest selectable value." : "Largest allowed number.";
+}
+
+export function getProjectPropertyStepSettingDescription(render: ProjectPropertyRenderMode): string {
+	return render === "progress" ? "Slider increment." : "Distance between selectable values.";
 }
 
 function migrateLegacyProjectProperties(
@@ -1291,7 +1308,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					});
 			});
 
-		if (property.render === "progress" || property.render === "stars") {
+		if (shouldShowProjectPropertyRangeSettings(property.render)) {
 			new Setting(containerEl)
 				.setName("Minimum")
 				.setDesc("Smallest allowed number.")
@@ -1307,7 +1324,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 			new Setting(containerEl)
 				.setName("Maximum")
-				.setDesc(property.render === "stars" ? "Number of stars to show." : "Largest allowed number.")
+				.setDesc(getProjectPropertyMaximumSettingDescription(property.render))
 				.addText((text) => {
 					text
 						.setPlaceholder("Max")
@@ -1319,10 +1336,10 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 				});
 		}
 
-		if (property.render === "progress") {
+		if (shouldShowProjectPropertyStepSetting(property.render)) {
 			new Setting(containerEl)
 				.setName("Step")
-				.setDesc("Slider increment.")
+				.setDesc(getProjectPropertyStepSettingDescription(property.render))
 				.addText((text) => {
 					text
 						.setPlaceholder("Step")

@@ -3,11 +3,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	DEFAULT_SETTINGS,
+	getProjectPropertyMaximumSettingDescription,
+	getProjectPropertyStepSettingDescription,
 	getOrderedPrettyLinkFields,
 	getStatusDisplayClassName,
 	normalizePrettyLinkFields,
 	normalizeSettings,
 	normalizeStatusDisplay,
+	shouldShowProjectPropertyRangeSettings,
+	shouldShowProjectPropertyStepSetting,
 } from "./settings";
 
 void test("uses default relationship property names", () => {
@@ -174,6 +178,55 @@ void test("normalizes pretty links enabled", () => {
 void test("normalizes pretty link property name visibility", () => {
 	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: false}).prettyLinkShowPropertyNames, false);
 	assert.equal(normalizeSettings({prettyLinkShowPropertyNames: "false" as never}).prettyLinkShowPropertyNames, true);
+});
+
+void test("exposes range and step settings for icon scale render modes", () => {
+	assert.equal(shouldShowProjectPropertyRangeSettings("progress"), true);
+	assert.equal(shouldShowProjectPropertyRangeSettings("stars"), true);
+	assert.equal(shouldShowProjectPropertyRangeSettings("pips"), true);
+	assert.equal(shouldShowProjectPropertyRangeSettings("icons"), true);
+	assert.equal(shouldShowProjectPropertyRangeSettings("text"), false);
+	assert.equal(shouldShowProjectPropertyRangeSettings("date"), false);
+
+	assert.equal(shouldShowProjectPropertyStepSetting("progress"), true);
+	assert.equal(shouldShowProjectPropertyStepSetting("stars"), true);
+	assert.equal(shouldShowProjectPropertyStepSetting("pips"), true);
+	assert.equal(shouldShowProjectPropertyStepSetting("icons"), true);
+	assert.equal(shouldShowProjectPropertyStepSetting("text"), false);
+	assert.equal(shouldShowProjectPropertyStepSetting("datetime"), false);
+
+	assert.equal(getProjectPropertyMaximumSettingDescription("icons"), "Largest selectable value.");
+	assert.equal(getProjectPropertyMaximumSettingDescription("progress"), "Largest allowed number.");
+	assert.equal(getProjectPropertyStepSettingDescription("pips"), "Distance between selectable values.");
+	assert.equal(getProjectPropertyStepSettingDescription("progress"), "Slider increment.");
+});
+
+void test("keeps icon scale step settings", () => {
+	const settings = normalizeSettings({
+		projectProperties: [
+			{
+				id: "complexity",
+				name: "complexity",
+				label: "Complexity",
+				type: "number",
+				render: "pips",
+				icon: "circle",
+				labelMode: "name",
+				min: 0,
+				max: 10,
+				step: 2,
+			},
+		],
+	});
+
+	assert.deepEqual(settings.projectProperties.map((property) => ({
+		render: property.render,
+		min: property.min,
+		max: property.max,
+		step: property.step,
+	})), [
+		{render: "pips", min: 0, max: 10, step: 2},
+	]);
 });
 
 void test("normalizes board color mode and migrates the legacy colorful toggle", () => {
