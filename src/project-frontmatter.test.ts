@@ -168,3 +168,83 @@ void test("replaces scalar children value with a list when appending", () => {
 		"",
 	].join("\n"));
 });
+
+void test("writes a list property to markdown without frontmatter", () => {
+	const updated = updatePropertyInMarkdown("# Project\n", "areas", ["Ops", "Design"]);
+
+	assert.equal(updated, [
+		"---",
+		"areas:",
+		"  - Ops",
+		"  - Design",
+		"---",
+		"# Project",
+		"",
+	].join("\n"));
+});
+
+void test("replaces a scalar property with a list property", () => {
+	const content = [
+		"---",
+		"areas: Ops",
+		"---",
+		"Body",
+		"",
+	].join("\n");
+
+	const updated = updatePropertyInMarkdown(content, "areas", ["Ops", "Design"]);
+
+	assert.equal(updated, [
+		"---",
+		"areas:",
+		"  - Ops",
+		"  - Design",
+		"---",
+		"Body",
+		"",
+	].join("\n"));
+});
+
+void test("replaces a list property with a new list property", () => {
+	const content = [
+		"---",
+		"areas:",
+		"  - Ops",
+		"---",
+		"Body",
+		"",
+	].join("\n");
+
+	const updated = updatePropertyInMarkdown(content, "areas", ["Design"]);
+
+	assert.equal(updated, [
+		"---",
+		"areas:",
+		"  - Design",
+		"---",
+		"Body",
+		"",
+	].join("\n"));
+});
+
+void test("removes a list property when the next list is empty", () => {
+	const content = [
+		"---",
+		"areas:",
+		"  - Ops",
+		"title: Apollo",
+		"---",
+		"Body",
+		"",
+	].join("\n");
+
+	const updated = updatePropertyInMarkdown(content, "areas", []);
+
+	assert.equal(updated, [
+		"---",
+		"title: Apollo",
+		"---",
+		"Body",
+		"",
+	].join("\n"));
+});

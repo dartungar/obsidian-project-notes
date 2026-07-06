@@ -94,11 +94,16 @@ function buildProjectProperties(settings: SimpleProjectViewsSettings, values: Pr
 	for (const property of settings.projectProperties) {
 		const propertyName = property.name.trim();
 		const value = normalizePropertyInputValue(property, values.propertyValues[property.id] ?? null);
-		if (!propertyName || value === null || value === "") {
+		if (!propertyName || value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
 			continue;
 		}
 
-		lines.push(`${formatYamlKey(propertyName)}: ${formatYamlScalar(value)}`);
+		if (Array.isArray(value)) {
+			lines.push(`${formatYamlKey(propertyName)}:`);
+			lines.push(...value.map((item) => `  - ${formatYamlScalar(item)}`));
+		} else {
+			lines.push(`${formatYamlKey(propertyName)}: ${formatYamlScalar(value)}`);
+		}
 	}
 
 	return lines.join("\n");
@@ -109,7 +114,9 @@ function addPropertyTokens(
 	property: ProjectPropertyDefinition,
 	value: ProjectPropertyInputValue | undefined,
 ): void {
-	const tokenValue = value === null || value === undefined ? "" : String(value);
+	const tokenValue = value === null || value === undefined
+		? ""
+		: Array.isArray(value) ? value.join(", ") : String(value);
 	const keys = unique([
 		property.id,
 		getPropertyTokenName(property.id),

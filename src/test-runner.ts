@@ -2,6 +2,7 @@ import "./bases/view-properties.test";
 import "./bases/table-sorting.test";
 import "./bases/project-board.test";
 import "./project-frontmatter.test";
+import "./project-template.test";
 import "./main.typecheck.test";
 import "./settings.test";
 import "./project-properties.test";
