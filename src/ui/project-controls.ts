@@ -5,6 +5,7 @@ import {
 	getIconScaleValues,
 	getProjectPropertyById,
 	getProjectPropertyDefinitionById,
+	getProjectPropertyOptionDisplays,
 	getProjectPropertyProgressPercent,
 	isIconScaleRenderMode,
 	isNumericProperty,
@@ -211,6 +212,11 @@ function createPropertySummaryItem(
 		return;
 	}
 
+	if (property.definition.render === "select" || property.definition.render === "multiselect") {
+		createOptionSummaryItem(containerEl, property, label, showLabel);
+		return;
+	}
+
 	createScalarSummaryItem(containerEl, property, label, showLabel);
 }
 
@@ -279,6 +285,36 @@ function createScalarSummaryItem(
 	});
 }
 
+function createOptionSummaryItem(
+	containerEl: HTMLElement,
+	property: ProjectPropertyValue,
+	label: string,
+	showLabel: boolean,
+): void {
+	const itemEl = containerEl.createDiv({cls: "spv-summary-item spv-summary-options"});
+	if (showLabel) {
+		addPropertySummaryLabelClass(itemEl, property);
+	}
+	createPropertySummaryLabel(itemEl, property, label, showLabel);
+	if (!property.definition.optionsColored) {
+		itemEl.createSpan({cls: "spv-summary-value", text: formatProjectPropertyValue(property)});
+		return;
+	}
+
+	createOptionChipList(itemEl, property, "spv-summary-value");
+}
+
+function createOptionChipList(containerEl: HTMLElement, property: ProjectPropertyValue, className: string): void {
+	const listEl = containerEl.createSpan({cls: `${className} spv-option-chip-list`});
+	for (const option of getProjectPropertyOptionDisplays(property.definition, property.values)) {
+		const chipEl = listEl.createSpan({cls: "spv-option-chip", text: option.value});
+		if (property.definition.optionsColored) {
+			chipEl.style.setProperty("--spv-option-color", option.color);
+			chipEl.addClass("spv-option-chip-colored");
+		}
+	}
+}
+
 function createPropertySummaryLabel(
 	containerEl: HTMLElement,
 	property: ProjectPropertyValue,
@@ -327,6 +363,21 @@ function createPropertyField(
 
 	if (isIconScaleRenderMode(property.definition.render)) {
 		return createIconScaleField(containerEl, property, label ?? property.definition.label, onChange);
+	}
+
+	if (property.definition.render === "select") {
+		return createSelectField(
+			containerEl,
+			label ?? property.definition.label,
+			property.definition,
+			property.definition.options.map((option) => option.value),
+			property.value,
+			async (value) => onChange(value || null),
+		);
+	}
+
+	if (property.definition.render === "multiselect") {
+		return createMultiSelectField(containerEl, property, label ?? property.definition.label, onChange);
 	}
 
 	if (property.definition.render === "textarea") {
@@ -386,14 +437,14 @@ function createIconField(
 function createSelectField(
 	containerEl: HTMLElement,
 	label: string,
-	kind: string,
+	propertyOrKind: ProjectPropertyDefinition | string,
 	options: string[],
 	value: string,
 	onChange: (value: string) => Promise<void>,
 ): HTMLSelectElement {
-	const fieldEl = createField(containerEl, label, kind, value.length === 0);
+	const fieldEl = createField(containerEl, label, propertyOrKind, value.length === 0);
 	const selectEl = fieldEl.createEl("select");
-	const normalizedOptions = ensureOption(options, value);
+	const normalizedOptions = ensureSelectOption(options, value);
 
 	const unsetOptionEl = selectEl.createEl("option", {text: "Unset"});
 	unsetOptionEl.value = "";
@@ -408,6 +459,54 @@ function createSelectField(
 	});
 
 	return selectEl;
+}
+
+function createMultiSelectField(
+	containerEl: HTMLElement,
+	property: ProjectPropertyValue,
+	label: string,
+	onChange: (value: ProjectPropertyInputValue) => Promise<void>,
+): HTMLButtonElement {
+	const fieldEl = createField(containerEl, label, property.definition, property.values.length === 0);
+	const optionsEl = fieldEl.createDiv({cls: "spv-multiselect-control"});
+	const configuredValues = property.definition.options.map((option) => option.value);
+	const visibleValues = ensureOptions(configuredValues, property.values);
+	const selectedValues = new Set(property.values);
+	let firstButtonEl: HTMLButtonElement | null = null;
+
+	for (const value of visibleValues) {
+		const option = getProjectPropertyOptionDisplays(property.definition, [value])[0];
+		const buttonEl = optionsEl.createEl("button", {
+			cls: `spv-option-toggle${selectedValues.has(value) ? " is-selected" : ""}${option?.isConfigured ? "" : " is-unknown"}`,
+			attr: {
+				type: "button",
+				"aria-pressed": selectedValues.has(value) ? "true" : "false",
+			},
+			text: value,
+		});
+		if (option && property.definition.optionsColored) {
+			buttonEl.style.setProperty("--spv-option-color", option.color);
+		}
+		buttonEl.addEventListener("click", () => {
+			const nextValues = toggleStringValue(property.values, value);
+			void onChange(nextValues);
+		});
+		firstButtonEl ??= buttonEl;
+	}
+
+	const clearButtonEl = optionsEl.createEl("button", {
+		cls: "clickable-icon spv-option-clear",
+		attr: {
+			type: "button",
+			"aria-label": `Clear ${label}`,
+		},
+	});
+	setIcon(clearButtonEl, "x");
+	clearButtonEl.addEventListener("click", () => {
+		void onChange([]);
+	});
+
+	return firstButtonEl ?? clearButtonEl;
 }
 
 function createProgressField(
@@ -539,6 +638,11 @@ export function renderProjectPropertyDisplay(
 		return;
 	}
 
+	if (property.definition.render === "select" || property.definition.render === "multiselect") {
+		createOptionDisplay(containerEl, property, label);
+		return;
+	}
+
 	createScalarDisplay(containerEl, property, label);
 }
 
@@ -597,6 +701,21 @@ function createScalarDisplay(containerEl: HTMLElement, property: ProjectProperty
 	});
 }
 
+function createOptionDisplay(containerEl: HTMLElement, property: ProjectPropertyValue, label: string): void {
+	const fieldEl = createField(containerEl, label, property.definition, property.values.length === 0);
+	if (property.values.length === 0) {
+		fieldEl.createSpan({cls: "spv-readonly-value", text: "Unset"});
+		return;
+	}
+
+	if (!property.definition.optionsColored) {
+		fieldEl.createSpan({cls: "spv-readonly-value", text: formatProjectPropertyValue(property)});
+		return;
+	}
+
+	createOptionChipList(fieldEl, property, "spv-readonly-value");
+}
+
 function createField(
 	containerEl: HTMLElement,
 	label: string,
@@ -652,12 +771,29 @@ function getInputValue(property: ProjectPropertyValue): string {
 	return property.value;
 }
 
-function ensureOption(options: string[], value: string): string[] {
+function ensureSelectOption(options: string[], value: string): string[] {
 	if (!value || options.includes(value)) {
 		return options;
 	}
 
 	return [value, ...options];
+}
+
+function ensureOptions(options: string[], values: string[]): string[] {
+	const visibleValues = [...options];
+	for (const value of values) {
+		if (value && !visibleValues.includes(value)) {
+			visibleValues.push(value);
+		}
+	}
+
+	return visibleValues;
+}
+
+function toggleStringValue(values: string[], value: string): string[] {
+	return values.includes(value)
+		? values.filter((candidate) => candidate !== value)
+		: [...values, value];
 }
 
 function focusControl(inputEl: FocusableControl): void {

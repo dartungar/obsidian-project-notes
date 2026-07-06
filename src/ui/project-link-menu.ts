@@ -200,7 +200,7 @@ async function updateProjectLinkProperty(
 	plugin: SimpleProjectViewsPlugin,
 	project: ProjectInfo,
 	propertyName: string,
-	value: string | number | null,
+	value: string | string[] | number | null,
 ): Promise<void> {
 	try {
 		await updateProjectProperty(plugin.app, project.file, propertyName, value);
@@ -215,7 +215,7 @@ export function waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(
 	plugin: SimpleProjectViewsPlugin,
 	file: TFile,
 	propertyName?: string,
-	value?: string | number | null,
+	value?: string | string[] | number | null,
 	options: ProjectMetadataRefreshWaitOptions = {},
 ): () => void {
 	const metadataCache = plugin.app.metadataCache;
@@ -313,7 +313,7 @@ function isProjectPropertyValueVisible(
 	plugin: SimpleProjectViewsPlugin,
 	file: TFile,
 	propertyName: string | undefined,
-	value: string | number | null,
+	value: string | string[] | number | null,
 ): boolean {
 	if (!propertyName) {
 		return true;
@@ -324,7 +324,7 @@ function isProjectPropertyValueVisible(
 		return false;
 	}
 
-	const expectedValue = value === null ? "" : String(value);
+	const expectedValue = Array.isArray(value) ? value.join(", ") : value === null ? "" : String(value);
 	if (propertyName === plugin.settings.propertyNames.status) {
 		return project.status === expectedValue;
 	}

@@ -611,6 +611,49 @@ button.spv-icon-picker-button {
 	gap: 1px;
 }
 
+.spv-option-chip-list,
+.spv-multiselect-control {
+	align-items: center;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.spv-option-chip,
+button.spv-option-toggle {
+	border: var(--border-width, 1px) solid var(--spv-option-color, var(--background-modifier-border));
+	border-radius: var(--radius-s);
+	line-height: var(--line-height-tight);
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.spv-option-chip {
+	background: color-mix(in srgb, var(--spv-option-color, var(--background-secondary)) 14%, transparent);
+	color: var(--text-muted);
+	display: inline-flex;
+	font-size: var(--font-ui-smaller);
+	padding: 1px var(--size-2-2);
+}
+
+button.spv-option-toggle {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	height: auto;
+	padding: var(--size-2-1) var(--size-2-2);
+}
+
+button.spv-option-toggle.is-selected {
+	background: color-mix(in srgb, var(--spv-option-color, var(--interactive-accent)) 18%, transparent);
+	color: var(--text-normal);
+}
+
+.spv-option-clear {
+	height: 24px;
+	width: 24px;
+}
+
 button.spv-icon-scale-button,
 button.spv-icon-scale-clear,
 button.spv-star-button,
