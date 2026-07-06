@@ -30,6 +30,8 @@ const projectProperties: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 	{
 		id: "nextAction",
@@ -42,6 +44,8 @@ const projectProperties: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 ];
 

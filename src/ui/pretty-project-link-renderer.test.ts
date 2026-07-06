@@ -121,6 +121,7 @@ void test("renders icon scale fields on pretty links", () => {
 		definition,
 		raw: index === 0 ? 2 : 3,
 		value: index === 0 ? "2" : "3",
+		values: [index === 0 ? "2" : "3"],
 		numberValue: index === 0 ? 2 : 3,
 	}));
 	const plugin = makePlugin(file, project, settings);
@@ -197,6 +198,8 @@ function makeNumberProperty(
 		min: 0,
 		max,
 		step: 1,
+		options: [],
+		optionsColored: false,
 	};
 }
 

@@ -84,6 +84,14 @@ button.spv-settings-tab.is-active {
 	flex-wrap: wrap;
 }
 
+.spv-property-option-setting .setting-item-control {
+	flex-wrap: wrap;
+}
+
+.spv-property-option-setting input[type="text"] {
+	min-width: 10rem;
+}
+
 .spv-setting-value,
 .spv-empty-state,
 .spv-readonly-value,

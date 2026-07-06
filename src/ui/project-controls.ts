@@ -102,6 +102,7 @@ export function renderProjectControls(
 			definition,
 			raw: null,
 			value: "",
+			values: [],
 			numberValue: null,
 		};
 

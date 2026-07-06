@@ -89,6 +89,7 @@ function makeProject(path: string, title: string, status: string, progress = "")
 				definition: DEFAULT_SETTINGS.projectProperties[0]!,
 				raw: progress,
 				value: progress,
+				values: [progress],
 				numberValue: Number(progress),
 			}]
 			: [],
