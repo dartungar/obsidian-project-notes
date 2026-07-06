@@ -143,6 +143,50 @@ void test("renders icon scale fields on pretty links", () => {
 	]);
 });
 
+void test("renders colored select and multiselect chips on pretty links", () => {
+	const file = makeFile("Projects/Apollo.md", "Apollo");
+	const settings = normalizeSettings({
+		projectProperties: [
+			makeOptionProperty("phase", "phase", "Phase", "text", "select", true, [
+				{id: "build", value: "Build", color: "#35a35c"},
+			]),
+			makeOptionProperty("areas", "areas", "Areas", "list", "multiselect", true, [
+				{id: "ops", value: "Ops", color: "#5b7cfa"},
+			]),
+		],
+		prettyLinkFields: ["phase", "areas"],
+	});
+	const project = makeProject(file);
+	project.properties = [
+		{
+			definition: settings.projectProperties[0]!,
+			raw: "Build",
+			value: "Build",
+			values: ["Build"],
+			numberValue: null,
+		},
+		{
+			definition: settings.projectProperties[1]!,
+			raw: ["Ops", "Unknown"],
+			value: "Ops, Unknown",
+			values: ["Ops", "Unknown"],
+			numberValue: null,
+		},
+	];
+	const plugin = makePlugin(file, project, settings);
+	const containerEl = createTestElement("div");
+
+	const linkEl = renderPrettyProjectLink(containerEl as unknown as HTMLElement, plugin, {
+		file,
+		project,
+		sourcePath: "Daily.md",
+		linktext: "Projects/Apollo",
+		label: "Apollo",
+	});
+
+	assert.deepEqual(findTextByClass(linkEl as unknown as TestElement, "spv-option-chip"), ["Build", "Ops", "Unknown"]);
+});
+
 function makePlugin(
 	resolvedFile: TFile | null,
 	project: ProjectInfo | null,
@@ -200,6 +244,31 @@ function makeNumberProperty(
 		step: 1,
 		options: [],
 		optionsColored: false,
+	};
+}
+
+function makeOptionProperty(
+	id: string,
+	name: string,
+	label: string,
+	type: "text" | "list",
+	render: "select" | "multiselect",
+	optionsColored: boolean,
+	options: {id: string; value: string; color: string}[],
+) {
+	return {
+		id,
+		name,
+		label,
+		type,
+		render,
+		icon: "",
+		labelMode: "name" as const,
+		min: 0,
+		max: 100,
+		step: 5,
+		options,
+		optionsColored,
 	};
 }
 

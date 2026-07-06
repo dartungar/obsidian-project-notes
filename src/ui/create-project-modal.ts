@@ -1,6 +1,10 @@
 import {ButtonComponent, Modal, Notice, Setting, TFile} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
-import {isNumericProperty} from "../project-properties";
+import {
+	getProjectPropertyOptionDisplays,
+	isNumericProperty,
+	normalizePropertyInputValue,
+} from "../project-properties";
 import type {ProjectPropertyDefinition, ProjectPropertyInputValue} from "../project-properties";
 import type {ProjectCreationValues} from "../project-template";
 import {ProjectIconSuggestModal} from "./icon-suggest-modal";
@@ -88,6 +92,16 @@ export class CreateProjectModal extends Modal {
 	}
 
 	private renderPropertySetting(property: ProjectPropertyDefinition): void {
+		if (property.render === "select") {
+			this.addSelectSetting(property);
+			return;
+		}
+
+		if (property.render === "multiselect") {
+			this.addMultiSelectSetting(property);
+			return;
+		}
+
 		if (property.render === "textarea") {
 			this.addTextAreaSetting(property);
 			return;
@@ -127,6 +141,58 @@ export class CreateProjectModal extends Modal {
 							return Promise.resolve();
 						}).open();
 					});
+			});
+	}
+
+	private addSelectSetting(property: ProjectPropertyDefinition): void {
+		new Setting(this.contentEl)
+			.setName(property.label)
+			.addDropdown((dropdown) => {
+				dropdown.addOption("", "Unset");
+				for (const option of property.options) {
+					dropdown.addOption(option.value, option.value);
+				}
+				const value = this.getStringValue(property);
+				if (value && !property.options.some((option) => option.value === value)) {
+					dropdown.addOption(value, value);
+				}
+				dropdown
+					.setValue(value)
+					.onChange((nextValue) => {
+						this.values.propertyValues[property.id] = nextValue.trim() || null;
+					});
+			});
+	}
+
+	private addMultiSelectSetting(property: ProjectPropertyDefinition): void {
+		const selectedValues = this.getListValue(property);
+		const values = [
+			...property.options.map((option) => option.value),
+			...selectedValues.filter((value) => !property.options.some((option) => option.value === value)),
+		];
+
+		new Setting(this.contentEl)
+			.setName(property.label)
+			.then((setting) => {
+				const optionsEl = setting.controlEl.createDiv({cls: "spv-multiselect-control"});
+				for (const value of values) {
+					const option = getProjectPropertyOptionDisplays(property, [value])[0];
+					const buttonEl = optionsEl.createEl("button", {
+						cls: `spv-option-toggle${selectedValues.includes(value) ? " is-selected" : ""}`,
+						attr: {type: "button"},
+						text: value,
+					});
+					if (option && property.optionsColored) {
+						buttonEl.style.setProperty("--spv-option-color", option.color);
+					}
+					buttonEl.addEventListener("click", () => {
+						const nextValues = selectedValues.includes(value)
+							? selectedValues.filter((candidate) => candidate !== value)
+							: [...selectedValues, value];
+						this.values.propertyValues[property.id] = normalizePropertyInputValue(property, nextValues);
+						this.onOpen();
+					});
+				}
 			});
 	}
 
@@ -195,6 +261,15 @@ export class CreateProjectModal extends Modal {
 		return Number.isFinite(numberValue) ? numberValue : property.min;
 	}
 
+	private getListValue(property: ProjectPropertyDefinition): string[] {
+		const value = this.values.propertyValues[property.id];
+		if (Array.isArray(value)) {
+			return value;
+		}
+
+		return value === null || value === undefined || value === "" ? [] : [String(value)];
+	}
+
 	private renderActions(): void {
 		const actionsEl = this.contentEl.createDiv({cls: "spv-modal-actions"});
 
@@ -252,6 +327,10 @@ function getDefaultProjectValues(plugin: SimpleProjectViewsPlugin): ProjectCreat
 function getDefaultPropertyValue(property: ProjectPropertyDefinition): ProjectPropertyInputValue {
 	if (property.render === "progress") {
 		return property.min;
+	}
+
+	if (property.type === "list") {
+		return [];
 	}
 
 	return null;
