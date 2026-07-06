@@ -1,11 +1,23 @@
-export type ProjectPropertyValueType = "text" | "number" | "date" | "datetime";
-export type ProjectPropertyRenderMode = "text" | "textarea" | "progress" | "stars" | "pips" | "icons" | "date" | "datetime";
+export type ProjectPropertyValueType = "text" | "number" | "date" | "datetime" | "list";
+export type ProjectPropertyRenderMode = "text" | "textarea" | "progress" | "stars" | "pips" | "icons" | "date" | "datetime" | "select" | "multiselect";
 export type ProjectPropertyLabelMode = "name" | "icon";
 
 export interface IconScaleDefinition {
 	min: number;
 	max: number;
 	step: number;
+}
+
+export interface ProjectPropertyOptionDefinition {
+	id: string;
+	value: string;
+	color: string;
+}
+
+export interface ProjectPropertyOptionDisplay {
+	value: string;
+	color: string;
+	isConfigured: boolean;
 }
 
 export interface ProjectPropertyDefinition {
@@ -19,16 +31,19 @@ export interface ProjectPropertyDefinition {
 	min: number;
 	max: number;
 	step: number;
+	options: ProjectPropertyOptionDefinition[];
+	optionsColored: boolean;
 }
 
 export interface ProjectPropertyValue {
 	definition: ProjectPropertyDefinition;
 	raw: unknown;
 	value: string;
+	values: string[];
 	numberValue: number | null;
 }
 
-export type ProjectPropertyInputValue = string | number | null;
+export type ProjectPropertyInputValue = string | string[] | number | null;
 
 export const DEFAULT_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 	{
@@ -42,6 +57,8 @@ export const DEFAULT_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 	{
 		id: "due",
@@ -54,6 +71,8 @@ export const DEFAULT_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 ];
 
@@ -70,6 +89,8 @@ export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 	{
 		id: "followUp",
@@ -82,6 +103,8 @@ export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 	{
 		id: "nextAction",
@@ -94,6 +117,8 @@ export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 	{
 		id: "blockedReason",
@@ -106,11 +131,13 @@ export const LEGACY_PROJECT_PROPERTIES: ProjectPropertyDefinition[] = [
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	},
 ];
 
-const PROPERTY_TYPES: ProjectPropertyValueType[] = ["text", "number", "date", "datetime"];
-const PROPERTY_RENDER_MODES: ProjectPropertyRenderMode[] = ["text", "textarea", "progress", "stars", "pips", "icons", "date", "datetime"];
+const PROPERTY_TYPES: ProjectPropertyValueType[] = ["text", "number", "date", "datetime", "list"];
+const PROPERTY_RENDER_MODES: ProjectPropertyRenderMode[] = ["text", "textarea", "progress", "stars", "pips", "icons", "date", "datetime", "select", "multiselect"];
 const PROPERTY_LABEL_MODES: ProjectPropertyLabelMode[] = ["name", "icon"];
 const ICON_SCALE_RENDER_MODES = new Set<ProjectPropertyRenderMode>(["stars", "pips", "icons"]);
 
@@ -119,6 +146,8 @@ const DEFAULT_MAX = 100;
 const DEFAULT_STEP = 5;
 const DEFAULT_ICON_SCALE_MAX = 5;
 const MAX_ICON_SCALE_VALUES = 12;
+const FALLBACK_OPTION_COLOR = "#8a8a8a";
+const OPTION_COLOR_PALETTE = ["#5b7cfa", "#35a35c", "#d8892b", "#d84c4c", "#8f5bd8", "#2f9e9e", "#c75c9b", "#6f6f6f"];
 
 export function getPropertyTypeLabel(type: ProjectPropertyValueType): string {
 	switch (type) {
@@ -128,6 +157,8 @@ export function getPropertyTypeLabel(type: ProjectPropertyValueType): string {
 			return "Date";
 		case "datetime":
 			return "Date/time";
+		case "list":
+			return "List";
 		case "text":
 			return "Text";
 	}
@@ -149,6 +180,10 @@ export function getPropertyRenderModeLabel(render: ProjectPropertyRenderMode): s
 			return "Date";
 		case "datetime":
 			return "Date/time";
+		case "select":
+			return "Select";
+		case "multiselect":
+			return "Multi-select";
 		case "text":
 			return "Text";
 	}
@@ -171,8 +206,10 @@ export function getCompatibleRenderModes(type: ProjectPropertyValueType): Projec
 			return ["date", "text"];
 		case "datetime":
 			return ["datetime", "text"];
+		case "list":
+			return ["multiselect"];
 		case "text":
-			return ["text", "textarea"];
+			return ["text", "textarea", "select"];
 	}
 }
 
@@ -201,6 +238,8 @@ export function normalizeProjectPropertyDefinition(
 	const min = normalizeNumber(value.min, DEFAULT_MIN);
 	const max = Math.max(min, normalizeNumber(value.max, defaultMax));
 	const step = Math.max(1, normalizeNumber(value.step, isIconScaleRenderMode(render) ? 1 : DEFAULT_STEP));
+	const options = normalizeProjectPropertyOptions(value.options);
+	const optionsColored = readBoolean(value.optionsColored, false);
 
 	return {
 		id,
@@ -213,6 +252,8 @@ export function normalizeProjectPropertyDefinition(
 		min,
 		max,
 		step,
+		options,
+		optionsColored,
 	};
 }
 
@@ -230,7 +271,10 @@ export function normalizeProjectPropertyDefinitions(value: unknown): ProjectProp
 }
 
 export function cloneProjectProperties(properties: ProjectPropertyDefinition[]): ProjectPropertyDefinition[] {
-	return properties.map((property) => ({...property}));
+	return properties.map((property) => ({
+		...property,
+		options: property.options.map((option) => ({...option})),
+	}));
 }
 
 export function createProjectPropertyDefinition(
@@ -253,6 +297,8 @@ export function createProjectPropertyDefinition(
 		min: DEFAULT_MIN,
 		max: DEFAULT_MAX,
 		step: DEFAULT_STEP,
+		options: [],
+		optionsColored: false,
 	};
 }
 
@@ -288,19 +334,25 @@ export function readProjectPropertyValue(
 	raw: unknown,
 ): ProjectPropertyValue {
 	const numberValue = readNumber(raw);
+	const values = definition.type === "list" ? normalizeStringValues(raw) : normalizeStringValues(readScalarString(raw));
 	const value = numberValue !== null && isNumericProperty(definition)
 		? formatNumber(numberValue)
-		: readScalarString(raw);
+		: values.join(", ");
 
 	return {
 		definition,
 		raw,
 		value,
+		values,
 		numberValue: numberValue === null ? null : clampNumber(numberValue, definition.min, definition.max),
 	};
 }
 
 export function isProjectPropertyEmpty(property: ProjectPropertyValue): boolean {
+	if (property.definition.type === "list") {
+		return property.values.length === 0;
+	}
+
 	if (isNumericProperty(property.definition)) {
 		return property.numberValue === null;
 	}
@@ -366,6 +418,61 @@ export function getIconScaleRenderIcon(definition: Pick<ProjectPropertyDefinitio
 	return definition.icon.trim() || "circle";
 }
 
+export function getProjectPropertyOptionDisplay(
+	definition: ProjectPropertyDefinition,
+	value: string,
+): ProjectPropertyOptionDisplay {
+	const normalizedValue = value.trim();
+	const option = definition.options.find((candidate) => candidate.value === normalizedValue);
+	if (option) {
+		return {value: option.value, color: option.color, isConfigured: true};
+	}
+
+	return {value: normalizedValue, color: FALLBACK_OPTION_COLOR, isConfigured: false};
+}
+
+export function getProjectPropertyOptionDisplays(
+	definition: ProjectPropertyDefinition,
+	values: string[],
+): ProjectPropertyOptionDisplay[] {
+	return normalizeStringValues(values).map((value) => getProjectPropertyOptionDisplay(definition, value));
+}
+
+export function generateProjectPropertyOptionColor(value: string): string {
+	const hash = value.trim().split("").reduce((total, character) => total + character.charCodeAt(0), 0);
+	return OPTION_COLOR_PALETTE[hash % OPTION_COLOR_PALETTE.length] ?? FALLBACK_OPTION_COLOR;
+}
+
+export function normalizeProjectPropertyOptions(value: unknown): ProjectPropertyOptionDefinition[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const usedIds = new Set<string>();
+	const usedValues = new Set<string>();
+	const options: ProjectPropertyOptionDefinition[] = [];
+
+	for (const item of value) {
+		if (!isRecord(item)) {
+			continue;
+		}
+
+		const optionValue = readString(item.value);
+		if (!optionValue || usedValues.has(optionValue)) {
+			continue;
+		}
+
+		usedValues.add(optionValue);
+		options.push({
+			id: makeUniquePropertyId(readString(item.id) || optionValue, usedIds),
+			value: optionValue,
+			color: normalizeOptionColor(item.color, optionValue),
+		});
+	}
+
+	return options;
+}
+
 export function getProjectPropertyById(
 	properties: ProjectPropertyValue[],
 	id: string,
@@ -382,14 +489,19 @@ export function getProjectPropertyDefinitionById(
 
 export function normalizePropertyInputValue(
 	definition: ProjectPropertyDefinition,
-	value: string | number | null,
+	value: string | string[] | number | null,
 ): ProjectPropertyInputValue {
 	if (value === null) {
 		return null;
 	}
 
+	if (definition.type === "list") {
+		const values = normalizeStringValues(value);
+		return values.length === 0 ? null : values;
+	}
+
 	if (isNumericProperty(definition)) {
-		const numberValue = typeof value === "number" ? value : Number.parseFloat(value);
+		const numberValue = typeof value === "number" ? value : Number.parseFloat(String(value));
 		if (!Number.isFinite(numberValue)) {
 			return null;
 		}
@@ -486,6 +598,36 @@ function readScalarString(value: unknown): string {
 
 function readString(value: unknown): string {
 	return typeof value === "string" ? value.trim() : "";
+}
+
+function readBoolean(value: unknown, fallback: boolean): boolean {
+	return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeOptionColor(value: unknown, optionValue: string): string {
+	if (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim())) {
+		return value.trim().toLowerCase();
+	}
+
+	return generateProjectPropertyOptionColor(optionValue);
+}
+
+function normalizeStringValues(value: unknown): string[] {
+	const rawValues = Array.isArray(value) ? value : [value];
+	const values: string[] = [];
+	const usedValues = new Set<string>();
+
+	for (const item of rawValues) {
+		const stringValue = readScalarString(item).trim();
+		if (!stringValue || usedValues.has(stringValue)) {
+			continue;
+		}
+
+		usedValues.add(stringValue);
+		values.push(stringValue);
+	}
+
+	return values;
 }
 
 function normalizeNumber(value: unknown, fallback: number): number {
