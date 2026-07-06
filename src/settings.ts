@@ -8,6 +8,7 @@ import {
 	cloneProjectProperties,
 	createProjectPropertyDefinition,
 	DEFAULT_PROJECT_PROPERTIES,
+	generateProjectPropertyOptionColor,
 	getCompatibleRenderModes,
 	getPropertyLabelModeLabel,
 	getPropertyLabelModes,
@@ -17,11 +18,12 @@ import {
 	isIconScaleRenderMode,
 	LEGACY_PROJECT_PROPERTIES,
 	normalizeProjectPropertyDefinitions,
+	normalizeProjectPropertyOptions,
 	normalizePropertyLabelMode,
 	normalizePropertyRenderMode,
 	normalizePropertyType,
 } from "./project-properties";
-import type {ProjectPropertyDefinition, ProjectPropertyRenderMode} from "./project-properties";
+import type {ProjectPropertyDefinition, ProjectPropertyOptionDefinition, ProjectPropertyRenderMode} from "./project-properties";
 import {ProjectIconSuggestModal} from "./ui/icon-suggest-modal";
 
 export type ProjectMatchType = "tag" | "property" | "folder";
@@ -323,6 +325,10 @@ export function shouldShowProjectPropertyRangeSettings(render: ProjectPropertyRe
 
 export function shouldShowProjectPropertyStepSetting(render: ProjectPropertyRenderMode): boolean {
 	return render === "progress" || isIconScaleRenderMode(render);
+}
+
+export function shouldShowProjectPropertyOptionSettings(render: ProjectPropertyRenderMode): boolean {
+	return render === "select" || render === "multiselect";
 }
 
 export function getProjectPropertyMaximumSettingDescription(render: ProjectPropertyRenderMode): string {
@@ -1308,6 +1314,10 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					});
 			});
 
+		if (shouldShowProjectPropertyOptionSettings(property.render)) {
+			this.addProjectPropertyOptionSettings(containerEl, property, index);
+		}
+
 		if (shouldShowProjectPropertyRangeSettings(property.render)) {
 			new Setting(containerEl)
 				.setName("Minimum")
@@ -1350,6 +1360,164 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 					text.inputEl.type = "number";
 				});
 		}
+	}
+
+	private addProjectPropertyOptionSettings(
+		containerEl: HTMLElement,
+		property: ProjectPropertyDefinition,
+		propertyIndex: number,
+	): void {
+		new Setting(containerEl)
+			.setName("Color options")
+			.setDesc("Render selected values as colored chips.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(property.optionsColored)
+					.onChange(async (value) => {
+						await this.updateProjectProperty(propertyIndex, {optionsColored: value});
+					});
+			});
+
+		for (let optionIndex = 0; optionIndex < property.options.length; optionIndex += 1) {
+			const option = property.options[optionIndex];
+			if (option) {
+				this.addProjectPropertyOptionSetting(containerEl, propertyIndex, option, optionIndex);
+			}
+		}
+
+		new Setting(containerEl)
+			.setName("Add option")
+			.setDesc("Create a selectable value for this property.")
+			.addButton((button) => {
+				button
+					.setButtonText("Add")
+					.onClick(async () => {
+						await this.addProjectPropertyOption(propertyIndex);
+					});
+			});
+	}
+
+	private addProjectPropertyOptionSetting(
+		containerEl: HTMLElement,
+		propertyIndex: number,
+		option: ProjectPropertyOptionDefinition,
+		optionIndex: number,
+	): void {
+		const property = this.plugin.settings.projectProperties[propertyIndex];
+		if (!property) {
+			return;
+		}
+
+		new Setting(containerEl)
+			.setClass("spv-property-option-setting")
+			.setName(`Option ${optionIndex + 1}`)
+			.addText((text) => {
+				text
+					.setPlaceholder("Option")
+					.setValue(option.value)
+					.onChange(async (value) => {
+						await this.updateProjectPropertyOption(propertyIndex, optionIndex, {
+							value: value.trim(),
+						});
+					});
+			})
+			.addColorPicker((color) => {
+				color
+					.setValue(option.color)
+					.onChange(async (value) => {
+						await this.updateProjectPropertyOption(propertyIndex, optionIndex, {
+							color: value,
+						});
+					});
+			})
+			.addExtraButton((button) => {
+				button
+					.setIcon("arrow-up")
+					.setTooltip("Move option up")
+					.setDisabled(optionIndex === 0)
+					.onClick(async () => {
+						await this.moveProjectPropertyOption(propertyIndex, optionIndex, optionIndex - 1);
+					});
+			})
+			.addExtraButton((button) => {
+				button
+					.setIcon("arrow-down")
+					.setTooltip("Move option down")
+					.setDisabled(optionIndex === property.options.length - 1)
+					.onClick(async () => {
+						await this.moveProjectPropertyOption(propertyIndex, optionIndex, optionIndex + 1);
+					});
+			})
+			.addExtraButton((button) => {
+				button
+					.setIcon("trash")
+					.setTooltip("Delete option")
+					.onClick(async () => {
+						await this.deleteProjectPropertyOption(propertyIndex, optionIndex);
+					});
+			});
+	}
+
+	private async addProjectPropertyOption(propertyIndex: number): Promise<void> {
+		const property = this.plugin.settings.projectProperties[propertyIndex];
+		if (!property) {
+			return;
+		}
+
+		const label = `Option ${property.options.length + 1}`;
+		await this.updateProjectProperty(propertyIndex, {
+			options: [
+				...property.options,
+				{
+					id: `${property.id}-option-${property.options.length + 1}`,
+					value: label,
+					color: generateProjectPropertyOptionColor(label),
+				},
+			],
+		}, true);
+	}
+
+	private async updateProjectPropertyOption(
+		propertyIndex: number,
+		optionIndex: number,
+		option: Partial<ProjectPropertyOptionDefinition>,
+	): Promise<void> {
+		const property = this.plugin.settings.projectProperties[propertyIndex];
+		if (!property?.options[optionIndex]) {
+			return;
+		}
+
+		const options = property.options.map((currentOption, currentIndex) => currentIndex === optionIndex
+			? {...currentOption, ...option}
+			: currentOption);
+		await this.updateProjectProperty(propertyIndex, {options: normalizeProjectPropertyOptions(options)}, true);
+	}
+
+	private async moveProjectPropertyOption(propertyIndex: number, fromIndex: number, toIndex: number): Promise<void> {
+		const property = this.plugin.settings.projectProperties[propertyIndex];
+		if (!property || toIndex < 0 || toIndex >= property.options.length) {
+			return;
+		}
+
+		const options = [...property.options];
+		const [option] = options.splice(fromIndex, 1);
+		if (!option) {
+			return;
+		}
+
+		options.splice(toIndex, 0, option);
+		await this.updateProjectProperty(propertyIndex, {options}, true);
+	}
+
+	private async deleteProjectPropertyOption(propertyIndex: number, optionIndex: number): Promise<void> {
+		const property = this.plugin.settings.projectProperties[propertyIndex];
+		if (!property) {
+			return;
+		}
+
+		await this.updateProjectProperty(propertyIndex, {
+			options: property.options.filter((_, currentIndex) => currentIndex !== optionIndex),
+		}, true);
 	}
 
 	private addNewProjectPropertySetting(containerEl: HTMLElement): void {

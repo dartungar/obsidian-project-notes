@@ -11,6 +11,7 @@ import {
 	normalizeSettings,
 	normalizeStatusDisplay,
 	shouldShowProjectPropertyRangeSettings,
+	shouldShowProjectPropertyOptionSettings,
 	shouldShowProjectPropertyStepSetting,
 } from "./settings";
 
@@ -167,6 +168,8 @@ function makeTextProperty(id: string, name: string, label: string) {
 		min: 0,
 		max: 100,
 		step: 5,
+		options: [],
+		optionsColored: false,
 	};
 }
 
@@ -215,6 +218,8 @@ void test("keeps icon scale step settings", () => {
 				min: 0,
 				max: 10,
 				step: 2,
+				options: [],
+				optionsColored: false,
 			},
 		],
 	});
@@ -227,6 +232,59 @@ void test("keeps icon scale step settings", () => {
 	})), [
 		{render: "pips", min: 0, max: 10, step: 2},
 	]);
+});
+
+void test("normalizes select and multiselect option settings", () => {
+	const settings = normalizeSettings({
+		projectProperties: [
+			{
+				id: "phase",
+				name: "phase",
+				label: "Phase",
+				type: "text",
+				render: "select",
+				icon: "",
+				labelMode: "name",
+				min: 0,
+				max: 100,
+				step: 5,
+				optionsColored: true,
+				options: [
+					{id: "idea", value: "Idea", color: "#123abc"},
+					{id: "duplicate", value: "Idea", color: "#ffffff"},
+					{id: "", value: "Build", color: "invalid"},
+				],
+			},
+			{
+				id: "areas",
+				name: "areas",
+				label: "Areas",
+				type: "list",
+				render: "multiselect",
+				icon: "",
+				labelMode: "name",
+				min: 0,
+				max: 100,
+				step: 5,
+				optionsColored: false,
+				options: [{id: "ops", value: "Ops", color: "#35a35c"}],
+			},
+		],
+	});
+
+	assert.equal(settings.projectProperties[0]?.render, "select");
+	assert.equal(settings.projectProperties[0]?.optionsColored, true);
+	assert.deepEqual(settings.projectProperties[0]?.options.map((option) => option.value), ["Idea", "Build"]);
+	assert.equal(settings.projectProperties[1]?.type, "list");
+	assert.equal(settings.projectProperties[1]?.render, "multiselect");
+	assert.deepEqual(settings.projectProperties[1]?.options.map((option) => option.value), ["Ops"]);
+});
+
+void test("shows option settings only for select render modes", () => {
+	assert.equal(shouldShowProjectPropertyOptionSettings("select"), true);
+	assert.equal(shouldShowProjectPropertyOptionSettings("multiselect"), true);
+	assert.equal(shouldShowProjectPropertyOptionSettings("text"), false);
+	assert.equal(shouldShowProjectPropertyOptionSettings("progress"), false);
 });
 
 void test("normalizes board color mode and migrates the legacy colorful toggle", () => {
