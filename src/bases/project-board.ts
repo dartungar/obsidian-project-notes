@@ -2,6 +2,7 @@ import {Notice, setIcon} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
 import type {ProjectInfo} from "../project-metadata";
 import {updateProjectProperty} from "../project-metadata";
+import type {ProjectPropertyInputValue} from "../project-properties";
 import {getStatusColor} from "../settings";
 import type {SimpleProjectViewsSettings} from "../settings";
 import {getNonEmptyProjectPropertyFieldIds, renderProjectControls} from "../ui/project-controls";
@@ -205,7 +206,7 @@ function renderBoardCard(
 		});
 	}
 
-	const afterUpdate = (propertyName: string, value: string | number | null) => {
+	const afterUpdate = (propertyName: string, value: ProjectPropertyInputValue) => {
 		waitForProjectMetadataRefreshAfterProjectLinkPropertyUpdate(plugin, project.file, propertyName, value);
 	};
 

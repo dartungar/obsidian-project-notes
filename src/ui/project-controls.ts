@@ -36,6 +36,12 @@ export interface ProjectControlsOptions {
 
 type FocusableControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
+export interface MultiSelectEditorState {
+	selectedValues: string[];
+	addOptions: string[];
+	unknownSelectedValues: string[];
+}
+
 export function renderProjectControls(
 	containerEl: HTMLElement,
 	app: App,
@@ -466,47 +472,61 @@ function createMultiSelectField(
 	property: ProjectPropertyValue,
 	label: string,
 	onChange: (value: ProjectPropertyInputValue) => Promise<void>,
-): HTMLButtonElement {
+): HTMLButtonElement | HTMLSelectElement {
 	const fieldEl = createField(containerEl, label, property.definition, property.values.length === 0);
 	const optionsEl = fieldEl.createDiv({cls: "spv-multiselect-control"});
-	const configuredValues = property.definition.options.map((option) => option.value);
-	const visibleValues = ensureOptions(configuredValues, property.values);
-	const selectedValues = new Set(property.values);
-	let firstButtonEl: HTMLButtonElement | null = null;
+	const state = getMultiSelectEditorState(property.definition, property.values);
+	const selectedEl = optionsEl.createDiv({cls: "spv-multiselect-selected"});
+	let firstSelectedButtonEl: HTMLButtonElement | null = null;
 
-	for (const value of visibleValues) {
+	for (const value of state.selectedValues) {
 		const option = getProjectPropertyOptionDisplays(property.definition, [value])[0];
-		const buttonEl = optionsEl.createEl("button", {
-			cls: `spv-option-toggle${selectedValues.has(value) ? " is-selected" : ""}${option?.isConfigured ? "" : " is-unknown"}`,
-			attr: {
-				type: "button",
-				"aria-pressed": selectedValues.has(value) ? "true" : "false",
-			},
-			text: value,
+		const itemEl = selectedEl.createSpan({
+			cls: `spv-option-toggle is-selected${option?.isConfigured ? "" : " is-unknown"}`,
 		});
 		if (option && property.definition.optionsColored) {
-			buttonEl.style.setProperty("--spv-option-color", option.color);
+			itemEl.style.setProperty("--spv-option-color", option.color);
 		}
-		buttonEl.addEventListener("click", () => {
-			const nextValues = toggleStringValue(property.values, value);
-			void onChange(nextValues);
+		itemEl.createSpan({cls: "spv-option-toggle-label", text: value});
+		const removeButtonEl = itemEl.createEl("button", {
+			cls: "clickable-icon spv-option-toggle-remove",
+			attr: {
+				type: "button",
+				"aria-label": `Remove ${value}`,
+			},
 		});
-		firstButtonEl ??= buttonEl;
+		setIcon(removeButtonEl, "x");
+		removeButtonEl.addEventListener("click", () => {
+			void onChange(removeMultiSelectEditorValue(state.selectedValues, value));
+		});
+		firstSelectedButtonEl ??= removeButtonEl;
 	}
 
-	const clearButtonEl = optionsEl.createEl("button", {
-		cls: "clickable-icon spv-option-clear",
-		attr: {
-			type: "button",
-			"aria-label": `Clear ${label}`,
-		},
+	if (state.selectedValues.length === 0) {
+		selectedEl.createSpan({cls: "spv-empty-multiselect-value", text: "None"});
+	}
+
+	const addSelectEl = optionsEl.createEl("select", {cls: "spv-multiselect-add"});
+	const placeholderEl = addSelectEl.createEl("option", {
+		text: state.addOptions.length > 0 ? "Add value" : "No values",
 	});
-	setIcon(clearButtonEl, "x");
-	clearButtonEl.addEventListener("click", () => {
-		void onChange([]);
+	placeholderEl.value = "";
+	for (const value of state.addOptions) {
+		const optionEl = addSelectEl.createEl("option", {text: value});
+		optionEl.value = value;
+	}
+	addSelectEl.value = "";
+	addSelectEl.disabled = state.addOptions.length === 0;
+	addSelectEl.addEventListener("change", () => {
+		if (!addSelectEl.value) {
+			return;
+		}
+
+		void onChange([...state.selectedValues, addSelectEl.value]);
+		addSelectEl.value = "";
 	});
 
-	return firstButtonEl ?? clearButtonEl;
+	return addSelectEl.disabled ? firstSelectedButtonEl ?? addSelectEl : addSelectEl;
 }
 
 function createProgressField(
@@ -779,21 +799,36 @@ function ensureSelectOption(options: string[], value: string): string[] {
 	return [value, ...options];
 }
 
-function ensureOptions(options: string[], values: string[]): string[] {
-	const visibleValues = [...options];
+export function getMultiSelectEditorState(
+	definition: ProjectPropertyDefinition,
+	values: string[],
+): MultiSelectEditorState {
+	const selectedValues = normalizeControlStringValues(values);
+	const configuredValues = normalizeControlStringValues(definition.options.map((option) => option.value));
+	const selectedValueSet = new Set(selectedValues);
+
+	return {
+		selectedValues,
+		addOptions: configuredValues.filter((value) => !selectedValueSet.has(value)),
+		unknownSelectedValues: selectedValues.filter((value) => !configuredValues.includes(value)),
+	};
+}
+
+export function removeMultiSelectEditorValue(values: string[], value: string): string[] {
+	const valueToRemove = value.trim();
+	return normalizeControlStringValues(values).filter((candidate) => candidate !== valueToRemove);
+}
+
+function normalizeControlStringValues(values: string[]): string[] {
+	const normalizedValues: string[] = [];
 	for (const value of values) {
-		if (value && !visibleValues.includes(value)) {
-			visibleValues.push(value);
+		const normalizedValue = value.trim();
+		if (normalizedValue && !normalizedValues.includes(normalizedValue)) {
+			normalizedValues.push(normalizedValue);
 		}
 	}
 
-	return visibleValues;
-}
-
-function toggleStringValue(values: string[], value: string): string[] {
-	return values.includes(value)
-		? values.filter((candidate) => candidate !== value)
-		: [...values, value];
+	return normalizedValues;
 }
 
 function focusControl(inputEl: FocusableControl): void {

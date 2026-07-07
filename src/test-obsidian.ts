@@ -182,6 +182,8 @@ export class TFile {
 }
 
 export class BasesView {
+	register(_callback: () => void): void {
+	}
 }
 
 export class Menu {

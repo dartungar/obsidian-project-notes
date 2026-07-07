@@ -248,3 +248,25 @@ void test("removes a list property when the next list is empty", () => {
 		"",
 	].join("\n"));
 });
+
+void test("removes a property when the next value is null", () => {
+	const content = [
+		"---",
+		"areas:",
+		"  - Ops",
+		"title: Apollo",
+		"---",
+		"Body",
+		"",
+	].join("\n");
+
+	const updated = updatePropertyInMarkdown(content, "areas", null);
+
+	assert.equal(updated, [
+		"---",
+		"title: Apollo",
+		"---",
+		"Body",
+		"",
+	].join("\n"));
+});

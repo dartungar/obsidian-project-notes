@@ -72,6 +72,10 @@ export class ProjectBasesView extends BasesView {
 	}
 
 	public render(options: {force?: boolean} = {}): void {
+		if (!this.hasRequiredBasesData()) {
+			return;
+		}
+
 		const viewProperties = this.getViewProperties();
 		const groups = this.variant === "board" ? [] : this.getProjectGroups();
 		const projects = this.variant === "board"
@@ -143,6 +147,17 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		return projects;
+	}
+
+	private hasRequiredBasesData(): boolean {
+		const data = this.data as unknown as {data?: unknown; groupedData?: unknown} | undefined;
+		if (!data) {
+			return false;
+		}
+
+		return this.variant === "board"
+			? Array.isArray(data.data)
+			: Array.isArray(data.groupedData);
 	}
 
 	private renderList(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {
