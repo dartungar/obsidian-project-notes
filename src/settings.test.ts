@@ -1,9 +1,11 @@
 /* eslint-disable import/no-nodejs-modules -- Node test files import built-in test/assert modules. */
 import test from "node:test";
 import assert from "node:assert/strict";
+import {App} from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	getProjectPropertyMaximumSettingDescription,
+	getProjectPropertyEditToggle,
 	getProjectPropertyStepSettingDescription,
 	getOrderedPrettyLinkFields,
 	getStatusDisplayClassName,
@@ -13,7 +15,10 @@ import {
 	shouldShowProjectPropertyRangeSettings,
 	shouldShowProjectPropertyOptionSettings,
 	shouldShowProjectPropertyStepSetting,
+	SimpleProjectViewsSettingTab,
 } from "./settings";
+import type SimpleProjectViewsPlugin from "./main";
+import type {ProjectPropertyOptionDefinition} from "./project-properties";
 
 void test("uses default relationship property names", () => {
 	const settings = normalizeSettings();
@@ -285,6 +290,62 @@ void test("shows option settings only for select render modes", () => {
 	assert.equal(shouldShowProjectPropertyOptionSettings("multiselect"), true);
 	assert.equal(shouldShowProjectPropertyOptionSettings("text"), false);
 	assert.equal(shouldShowProjectPropertyOptionSettings("progress"), false);
+});
+
+void test("uses edit and done icons for project property editing", () => {
+	assert.deepEqual(getProjectPropertyEditToggle(false), {
+		icon: "pencil",
+		tooltip: "Edit property",
+	});
+	assert.deepEqual(getProjectPropertyEditToggle(true), {
+		icon: "check",
+		tooltip: "Done editing",
+	});
+});
+
+void test("updates project property option text without rerendering settings", async () => {
+	let saveCount = 0;
+	const plugin = {
+		settings: normalizeSettings({
+			projectProperties: [
+				{
+					id: "area",
+					name: "area",
+					label: "Area",
+					type: "text",
+					render: "select",
+					icon: "",
+					labelMode: "name",
+					min: 0,
+					max: 100,
+					step: 5,
+					optionsColored: true,
+					options: [{id: "option-1", value: "Option 1", color: "#d8892b"}],
+				},
+			],
+		}),
+		saveSettings: async () => {
+			saveCount += 1;
+		},
+	} as unknown as SimpleProjectViewsPlugin;
+	const tab = new SimpleProjectViewsSettingTab(new App(), plugin) as unknown as {
+		renderSettings: () => void;
+		updateProjectPropertyOption: (
+			propertyIndex: number,
+			optionIndex: number,
+			option: Partial<ProjectPropertyOptionDefinition>,
+		) => Promise<void>;
+	};
+	let renderCount = 0;
+	tab.renderSettings = () => {
+		renderCount += 1;
+	};
+
+	await tab.updateProjectPropertyOption(0, 0, {value: "Design"});
+
+	assert.equal(saveCount, 1);
+	assert.equal(renderCount, 0);
+	assert.equal(plugin.settings.projectProperties[0]?.options[0]?.value, "Design");
 });
 
 void test("normalizes board color mode and migrates the legacy colorful toggle", () => {

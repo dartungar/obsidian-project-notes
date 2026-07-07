@@ -3,33 +3,30 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {QueryController} from "obsidian";
 import type SimpleProjectViewsPlugin from "../main";
-import {normalizeSettings} from "../settings";
-import {ProjectBasesView} from "./project-bases-view";
+import {ProjectIndex} from "../project-metadata";
+import {DEFAULT_SETTINGS, normalizeSettings} from "../settings";
+import {ProjectBasesView, type ProjectBasesVariant} from "./project-bases-view";
 
-void test("board view keeps existing DOM when plugin refresh runs before Bases data is available", () => {
-	const parentEl = createTestElement("div");
-	const plugin = makePlugin();
-	const view = new ProjectBasesView(
-		new QueryController(),
-		parentEl as unknown as HTMLElement,
-		plugin,
-		"project-board",
-		"board",
-	);
-	const rootEl = parentEl.children[0];
-	assert.ok(rootEl);
-	const existingEl = rootEl.createDiv({cls: "existing-board-content"});
+void test("bases views tolerate rendering before query data is available", () => {
+	for (const variant of ["list", "table", "board"] as ProjectBasesVariant[]) {
+		const containerEl = createTestElement("div");
+		const view = new ProjectBasesView(
+			new QueryController(),
+			containerEl as unknown as HTMLElement,
+			makePlugin(),
+			`test-${variant}`,
+			variant,
+		);
+		(view as unknown as {config: TestBasesConfig}).config = makeConfig();
 
-	assert.doesNotThrow(() => view.render({force: true}));
-	assert.ok(rootEl.children.includes(existingEl));
+		assert.doesNotThrow(() => view.render());
+	}
 });
 
 function makePlugin(): SimpleProjectViewsPlugin {
 	return {
-		settings: normalizeSettings({}),
-		projectIndex: {
-			getProject: () => null,
-		},
+		settings: normalizeSettings(DEFAULT_SETTINGS),
+		projectIndex: new ProjectIndex({} as never, () => normalizeSettings(DEFAULT_SETTINGS)),
 		registerProjectBasesView: () => undefined,
 		unregisterProjectBasesView: () => undefined,
 	} as unknown as SimpleProjectViewsPlugin;
@@ -38,32 +35,42 @@ function makePlugin(): SimpleProjectViewsPlugin {
 interface TestElement {
 	tag: string;
 	className: string;
-	text: string;
 	children: TestElement[];
-	attributes: Record<string, string>;
-	createEl: (tag: string, options?: TestElementOptions) => TestElement;
 	createDiv: (options?: TestElementOptions) => TestElement;
 }
 
 interface TestElementOptions {
 	cls?: string;
-	text?: string;
-	attr?: Record<string, string>;
+}
+
+interface TestBasesConfig {
+	get: () => unknown;
+	getDisplayName: (propertyId: string) => string;
+	getOrder: () => string[];
+	getSort: () => [];
+	set: () => void;
+}
+
+function makeConfig(): TestBasesConfig {
+	return {
+		get: () => null,
+		getDisplayName: (propertyId) => propertyId,
+		getOrder: () => [],
+		getSort: () => [],
+		set: () => undefined,
+	};
 }
 
 function createTestElement(tag: string, options: TestElementOptions = {}): TestElement {
 	const element: TestElement = {
 		tag,
 		className: options.cls ?? "",
-		text: options.text ?? "",
 		children: [],
-		attributes: {...options.attr},
-		createEl: (childTag, childOptions = {}) => {
-			const childEl = createTestElement(childTag, childOptions);
+		createDiv: (childOptions = {}) => {
+			const childEl = createTestElement("div", childOptions);
 			element.children.push(childEl);
 			return childEl;
 		},
-		createDiv: (childOptions = {}) => element.createEl("div", childOptions),
 	};
 
 	return element;

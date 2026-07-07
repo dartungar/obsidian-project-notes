@@ -80,6 +80,69 @@ button.spv-settings-tab.is-active {
 	color: var(--text-normal);
 }
 
+.spv-project-property-heading .setting-item-control .clickable-icon:first-child {
+	color: var(--interactive-accent);
+}
+
+.spv-settings-heading-page {
+	margin-bottom: var(--size-4-3);
+}
+
+.spv-settings-heading-page .setting-item-name {
+	font-size: var(--font-ui-large, 1.125rem);
+	font-weight: var(--font-bold);
+}
+
+.spv-settings-heading-section {
+	margin-block: var(--size-4-6, 24px) var(--size-2-2);
+	padding-top: var(--size-2-2);
+}
+
+.spv-settings-heading-section .setting-item-name {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-bold);
+}
+
+.spv-settings-heading-property {
+	margin-block: var(--size-4-2) var(--size-2-1);
+}
+
+.spv-settings-heading-property .setting-item-name {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+}
+
+.spv-settings-heading-subsection {
+	margin-block: var(--size-4-4) var(--size-2-1);
+}
+
+.spv-settings-heading-subsection .setting-item-name {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+.spv-settings-tree-level-1,
+.spv-settings-tree-level-2,
+.spv-settings-tree-level-3 {
+	max-width: calc(100% - var(--spv-settings-tree-indent, 0px));
+}
+
+.spv-settings-tree-level-1 {
+	--spv-settings-tree-indent: var(--size-4-4);
+	margin-left: var(--size-4-4);
+}
+
+.spv-settings-tree-level-2 {
+	--spv-settings-tree-indent: calc(var(--size-4-4) + var(--size-4-5, 20px));
+	margin-left: var(--spv-settings-tree-indent);
+}
+
+.spv-settings-tree-level-3 {
+	--spv-settings-tree-indent: calc(var(--size-4-4) + var(--size-4-5, 20px) + var(--size-4-5, 20px));
+	margin-left: var(--spv-settings-tree-indent);
+}
+
 .spv-status-setting .setting-item-control {
 	flex-wrap: wrap;
 }
@@ -620,8 +683,26 @@ button.spv-icon-picker-button {
 	min-width: 0;
 }
 
+.spv-multiselect-selected {
+	align-items: center;
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.spv-multiselect-add {
+	max-width: 12rem;
+	min-width: 7rem;
+}
+
+.spv-empty-multiselect-value {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
 .spv-option-chip,
-button.spv-option-toggle {
+.spv-option-toggle {
 	border: var(--border-width, 1px) solid var(--spv-option-color, var(--background-modifier-border));
 	border-radius: var(--radius-s);
 	line-height: var(--line-height-tight);
@@ -637,21 +718,26 @@ button.spv-option-toggle {
 	padding: 1px var(--size-2-2);
 }
 
-button.spv-option-toggle {
+.spv-option-toggle {
+	align-items: center;
 	background: var(--background-secondary);
 	color: var(--text-muted);
+	display: inline-flex;
+	gap: var(--size-2-1);
 	height: auto;
 	padding: var(--size-2-1) var(--size-2-2);
 }
 
-button.spv-option-toggle.is-selected {
+.spv-option-toggle.is-selected {
 	background: color-mix(in srgb, var(--spv-option-color, var(--interactive-accent)) 18%, transparent);
 	color: var(--text-normal);
 }
 
-.spv-option-clear {
-	height: 24px;
-	width: 24px;
+.spv-option-toggle-remove {
+	color: var(--text-muted);
+	height: 14px;
+	width: 14px;
+	padding: 0;
 }
 
 button.spv-icon-scale-button,

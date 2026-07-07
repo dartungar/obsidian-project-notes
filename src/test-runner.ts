@@ -9,6 +9,7 @@ import "./settings.test";
 import "./project-properties.test";
 import "./project-relationships.test";
 import "./ui/project-icon.test";
+import "./ui/project-controls.test";
 import "./ui/pretty-project-link-fields.test";
 import "./ui/pretty-project-link-live-preview.test";
 import "./ui/pretty-project-link-renderer.test";

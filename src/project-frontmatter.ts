@@ -181,15 +181,13 @@ function updateYamlScalar(body: string, propertyName: string, value: string | st
 	const lineEnd = body.includes("\r\n") ? "\r\n" : "\n";
 	const keyIndex = lines.findIndex((line) => isYamlKeyLine(line, propertyName));
 	const shouldDelete = value === null || value === "" || (Array.isArray(value) && value.length === 0);
-	const replacement = Array.isArray(value)
-		? formatYamlListProperty(propertyName, value)
-		: [`${formatYamlKey(propertyName)}: ${formatYamlScalar(value as string | number)}`];
 
 	if (keyIndex !== -1) {
 		const replaceEnd = findYamlPropertyEnd(lines, keyIndex);
 		if (shouldDelete) {
 			lines.splice(keyIndex, replaceEnd - keyIndex);
 		} else {
+			const replacement = formatYamlProperty(propertyName, value);
 			lines.splice(keyIndex, replaceEnd - keyIndex, ...replacement);
 		}
 
@@ -200,8 +198,15 @@ function updateYamlScalar(body: string, propertyName: string, value: string | st
 		return body;
 	}
 
+	const replacement = formatYamlProperty(propertyName, value);
 	lines.push(...replacement);
 	return lines.join(lineEnd);
+}
+
+function formatYamlProperty(propertyName: string, value: string | string[] | number | null): string[] {
+	return Array.isArray(value)
+		? formatYamlListProperty(propertyName, value)
+		: [`${formatYamlKey(propertyName)}: ${formatYamlScalar(value as string | number)}`];
 }
 
 function appendYamlListItem(body: string, propertyName: string, value: string): string {

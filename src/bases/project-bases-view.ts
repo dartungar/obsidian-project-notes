@@ -72,7 +72,7 @@ export class ProjectBasesView extends BasesView {
 	}
 
 	public render(options: {force?: boolean} = {}): void {
-		if (!this.data) {
+		if (!this.hasRequiredBasesData()) {
 			return;
 		}
 
@@ -147,6 +147,17 @@ export class ProjectBasesView extends BasesView {
 		}
 
 		return projects;
+	}
+
+	private hasRequiredBasesData(): boolean {
+		const data = this.data as unknown as {data?: unknown; groupedData?: unknown} | undefined;
+		if (!data) {
+			return false;
+		}
+
+		return this.variant === "board"
+			? Array.isArray(data.data)
+			: Array.isArray(data.groupedData);
 	}
 
 	private renderList(groups: ProjectGroup[], viewProperties: ResolvedProjectViewProperties): void {

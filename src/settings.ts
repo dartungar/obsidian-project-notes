@@ -267,6 +267,12 @@ export function normalizeStatusDisplay(value: unknown): StatusDisplayMode {
 		: DEFAULT_SETTINGS.statusDisplay;
 }
 
+export function getProjectPropertyEditToggle(isEditing: boolean): {icon: string; tooltip: string} {
+	return isEditing
+		? {icon: "check", tooltip: "Done editing"}
+		: {icon: "pencil", tooltip: "Edit property"};
+}
+
 export function normalizePrettyLinkFields(
 	value: unknown,
 	projectProperties = DEFAULT_SETTINGS.projectProperties,
@@ -522,7 +528,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 
 		containerEl.empty();
-		this.addHeading(containerEl, "Simple project views");
+		this.addHeading(containerEl, "Project Notes");
 		this.displayTabs(containerEl);
 
 		if (this.activeTab === "general") {
@@ -1078,10 +1084,12 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 	}
 
 	private displayProperties(containerEl: HTMLElement): void {
-		this.addHeading(containerEl, "Properties");
+		this.addHeading(containerEl, "Properties", "spv-settings-heading-page");
 
+		this.addHeading(containerEl, "Built-in fields", "spv-settings-heading-section", "spv-settings-tree-root");
 		this.addIconPropertySetting(containerEl);
 
+		this.addHeading(containerEl, "Note properties", "spv-settings-heading-section", "spv-settings-tree-root");
 		for (let index = 0; index < this.plugin.settings.projectProperties.length; index += 1) {
 			const property = this.plugin.settings.projectProperties[index];
 			if (property) {
@@ -1089,6 +1097,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			}
 		}
 
+		this.addHeading(containerEl, "Add property", "spv-settings-heading-section", "spv-settings-tree-root");
 		this.addNewProjectPropertySetting(containerEl);
 	}
 
@@ -1127,6 +1136,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 	private addIconPropertySetting(containerEl: HTMLElement): void {
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-1")
 			.setName("Project icon")
 			.setDesc("Built-in field shown next to project titles.")
 			.addToggle((toggle) => {
@@ -1161,15 +1171,19 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			? `Note property: ${property.name}. Rendered as ${getPropertyRenderModeLabel(property.render).toLowerCase()}.`
 			: `Rendered as ${getPropertyRenderModeLabel(property.render).toLowerCase()}.`;
 		const isExpanded = this.expandedProjectProperties.has(property.id);
+		const editToggle = getProjectPropertyEditToggle(isExpanded);
 
 		new Setting(containerEl)
+			.setClass("spv-project-property-heading")
+			.setClass("spv-settings-heading-property")
+			.setClass("spv-settings-tree-level-1")
 			.setName(title)
 			.setDesc(desc)
 			.setHeading()
 			.addExtraButton((button) => {
 				button
-					.setIcon(isExpanded ? "chevron-down" : "chevron-right")
-					.setTooltip(isExpanded ? "Collapse property" : "Expand property")
+					.setIcon(editToggle.icon)
+					.setTooltip(editToggle.tooltip)
 					.onClick(() => {
 						if (isExpanded) {
 							this.expandedProjectProperties.delete(property.id);
@@ -1211,6 +1225,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("Label")
 			.setDesc("Name shown in views.")
 			.addText((text) => {
@@ -1223,6 +1238,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("Note property")
 			.setDesc("Property name stored in the note.")
 			.addText((text) => {
@@ -1235,6 +1251,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("Value type")
 			.setDesc("Stored value.")
 			.addDropdown((dropdown) => {
@@ -1254,6 +1271,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("Render as")
 			.setDesc("Display and edit control.")
 			.addDropdown((dropdown) => {
@@ -1271,6 +1289,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("View label")
 			.setDesc("Show the property name or its icon in summaries.")
 			.addDropdown((dropdown) => {
@@ -1288,6 +1307,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-2")
 			.setName("Label icon")
 			.setDesc("Used when view label is set to icon.")
 			.addText((text) => {
@@ -1315,11 +1335,13 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 			});
 
 		if (shouldShowProjectPropertyOptionSettings(property.render)) {
+			this.addHeading(containerEl, "Options", "spv-settings-heading-subsection", "spv-settings-tree-level-2");
 			this.addProjectPropertyOptionSettings(containerEl, property, index);
 		}
 
 		if (shouldShowProjectPropertyRangeSettings(property.render)) {
 			new Setting(containerEl)
+				.setClass("spv-settings-tree-level-2")
 				.setName("Minimum")
 				.setDesc("Smallest allowed number.")
 				.addText((text) => {
@@ -1333,6 +1355,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(containerEl)
+				.setClass("spv-settings-tree-level-2")
 				.setName("Maximum")
 				.setDesc(getProjectPropertyMaximumSettingDescription(property.render))
 				.addText((text) => {
@@ -1348,6 +1371,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		if (shouldShowProjectPropertyStepSetting(property.render)) {
 			new Setting(containerEl)
+				.setClass("spv-settings-tree-level-2")
 				.setName("Step")
 				.setDesc(getProjectPropertyStepSettingDescription(property.render))
 				.addText((text) => {
@@ -1368,6 +1392,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		propertyIndex: number,
 	): void {
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-3")
 			.setName("Color options")
 			.setDesc("Render selected values as colored chips.")
 			.addToggle((toggle) => {
@@ -1386,6 +1411,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-3")
 			.setName("Add option")
 			.setDesc("Create a selectable value for this property.")
 			.addButton((button) => {
@@ -1410,6 +1436,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setClass("spv-property-option-setting")
+			.setClass("spv-settings-tree-level-3")
 			.setName(`Option ${optionIndex + 1}`)
 			.addText((text) => {
 				text
@@ -1490,7 +1517,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		const options = property.options.map((currentOption, currentIndex) => currentIndex === optionIndex
 			? {...currentOption, ...option}
 			: currentOption);
-		await this.updateProjectProperty(propertyIndex, {options: normalizeProjectPropertyOptions(options)}, true);
+		await this.updateProjectProperty(propertyIndex, {options: normalizeProjectPropertyOptions(options)});
 	}
 
 	private async moveProjectPropertyOption(propertyIndex: number, fromIndex: number, toIndex: number): Promise<void> {
@@ -1522,6 +1549,7 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 
 	private addNewProjectPropertySetting(containerEl: HTMLElement): void {
 		new Setting(containerEl)
+			.setClass("spv-settings-tree-level-1")
 			.setName("New property")
 			.setDesc("Add any note property and choose how it appears in project views.")
 			.addButton((button) => {
@@ -1722,10 +1750,14 @@ export class SimpleProjectViewsSettingTab extends PluginSettingTab {
 		this.renderSettings();
 	}
 
-	private addHeading(containerEl: HTMLElement, name: string): void {
-		new Setting(containerEl)
+	private addHeading(containerEl: HTMLElement, name: string, ...classNames: string[]): void {
+		const heading = new Setting(containerEl)
 			.setName(name)
 			.setHeading();
+
+		for (const className of classNames) {
+			heading.setClass(className);
+		}
 	}
 }
 
