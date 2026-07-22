@@ -23,6 +23,36 @@ void test("bases views tolerate rendering before query data is available", () =>
 	}
 });
 
+void test("isolates interactive view controls from Canvas pointer handling", () => {
+	const parentEl = createTestElement("div");
+	new ProjectBasesView(
+		new QueryController(),
+		parentEl as unknown as HTMLElement,
+		makePlugin(),
+		"test-list",
+		"list",
+	);
+	const viewEl = parentEl.children[0];
+	assert.ok(viewEl);
+	const interactiveTarget = createTestElement("button");
+	const passiveTarget = createTestElement("div");
+
+	for (const eventType of ["pointerdown", "mousedown"]) {
+		let propagationStops = 0;
+		viewEl.dispatchEventType(eventType, {
+			target: interactiveTarget,
+			stopPropagation: () => propagationStops++,
+		});
+		assert.equal(propagationStops, 1);
+
+		viewEl.dispatchEventType(eventType, {
+			target: passiveTarget,
+			stopPropagation: () => propagationStops++,
+		});
+		assert.equal(propagationStops, 1);
+	}
+});
+
 function makePlugin(): SimpleProjectViewsPlugin {
 	return {
 		settings: normalizeSettings(DEFAULT_SETTINGS),
@@ -37,6 +67,11 @@ interface TestElement {
 	className: string;
 	children: TestElement[];
 	createDiv: (options?: TestElementOptions) => TestElement;
+	listeners: Record<string, Array<(event: unknown) => void>>;
+	addEventListener: (type: string, listener: (event: unknown) => void) => void;
+	removeEventListener: (type: string, listener: (event: unknown) => void) => void;
+	dispatchEventType: (type: string, event: unknown) => void;
+	closest: (selector: string) => TestElement | null;
 }
 
 interface TestElementOptions {
@@ -66,11 +101,24 @@ function createTestElement(tag: string, options: TestElementOptions = {}): TestE
 		tag,
 		className: options.cls ?? "",
 		children: [],
+		listeners: {},
 		createDiv: (childOptions = {}) => {
 			const childEl = createTestElement("div", childOptions);
 			element.children.push(childEl);
 			return childEl;
 		},
+		addEventListener: (type, listener) => {
+			element.listeners[type] = [...element.listeners[type] ?? [], listener];
+		},
+		removeEventListener: (type, listener) => {
+			element.listeners[type] = (element.listeners[type] ?? []).filter((candidate) => candidate !== listener);
+		},
+		dispatchEventType: (type, event) => {
+			for (const listener of element.listeners[type] ?? []) {
+				listener(event);
+			}
+		},
+		closest: (selector) => selector.split(",").some((candidate) => candidate.trim() === tag) ? element : null,
 	};
 
 	return element;

@@ -44,6 +44,18 @@ const TABLE_FIELD_LABELS: Partial<Record<ProjectControlField, string>> = {
 	status: "Status",
 };
 const TABLE_COLUMN_WIDTHS_CONFIG_KEY = "spvTableColumnWidths";
+const INTERACTIVE_VIEW_TARGET_SELECTOR = [
+	"a",
+	"button",
+	"input",
+	"label",
+	"select",
+	"textarea",
+	"[contenteditable='true']",
+	"[role='button']",
+	"[role='separator']",
+	".spv-project-controls",
+].join(", ");
 
 export class ProjectBasesView extends BasesView {
 	readonly type: string;
@@ -63,8 +75,24 @@ export class ProjectBasesView extends BasesView {
 		super(controller);
 		this.type = type;
 		this.containerEl = parentEl.createDiv({cls: `spv-bases-view spv-bases-view-${variant}`});
+		this.isolateInteractiveControlsFromCanvas();
 		this.plugin.registerProjectBasesView(this);
 		this.register(() => this.plugin.unregisterProjectBasesView(this));
+	}
+
+	private isolateInteractiveControlsFromCanvas(): void {
+		const stopCanvasPointerHandling = (event: Event) => {
+			if (isInteractiveViewTarget(event.target)) {
+				event.stopPropagation();
+			}
+		};
+
+		this.containerEl.addEventListener("pointerdown", stopCanvasPointerHandling);
+		this.containerEl.addEventListener("mousedown", stopCanvasPointerHandling);
+		this.register(() => {
+			this.containerEl.removeEventListener("pointerdown", stopCanvasPointerHandling);
+			this.containerEl.removeEventListener("mousedown", stopCanvasPointerHandling);
+		});
 	}
 
 	public onDataUpdated(): void {
@@ -800,6 +828,14 @@ function getProjectsFromGroups(groups: ProjectGroup[]): ProjectInfo[] {
 	}
 
 	return projects;
+}
+
+function isInteractiveViewTarget(target: EventTarget | null): boolean {
+	if (!target || typeof (target as Element).closest !== "function") {
+		return false;
+	}
+
+	return (target as Element).closest(INTERACTIVE_VIEW_TARGET_SELECTOR) !== null;
 }
 
 function isBasesSortConfig(value: unknown): value is BasesWritableSortConfig {
