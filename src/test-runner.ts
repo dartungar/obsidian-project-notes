@@ -3,6 +3,7 @@ import "./bases/table-sorting.test";
 import "./bases/project-board.test";
 import "./bases/project-bases-view.test";
 import "./project-frontmatter.test";
+import "./project-metadata.test";
 import "./project-template.test";
 import "./main.typecheck.test";
 import "./settings.test";

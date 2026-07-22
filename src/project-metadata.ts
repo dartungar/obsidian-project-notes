@@ -18,6 +18,14 @@ export interface ProjectInfo {
 	relationships: ProjectRelationships;
 }
 
+interface PendingProjectPropertyUpdate {
+	value: ProjectPropertyInputValue;
+	token: symbol;
+	committed: boolean;
+}
+
+const pendingProjectPropertyUpdates = new WeakMap<App, Map<string, Map<string, PendingProjectPropertyUpdate>>>();
+
 export class ProjectIndex {
 	constructor(
 		private readonly app: App,
@@ -98,7 +106,9 @@ export class ProjectIndex {
 	}
 
 	private getFrontmatter(file: TFile): Record<string, unknown> {
-		return getFrontmatter(this.app.metadataCache.getFileCache(file));
+		const cachedFrontmatter = getFrontmatter(this.app.metadataCache.getFileCache(file));
+
+		return applyPendingProjectPropertyUpdates(this.app, file, cachedFrontmatter);
 	}
 }
 
@@ -112,11 +122,15 @@ export async function updateProjectProperty(
 		return;
 	}
 
-	const content = await app.vault.read(file);
-	const updatedContent = updatePropertyInMarkdown(content, propertyName, value);
+	const token = Symbol(propertyName);
+	setPendingProjectPropertyUpdate(app, file, propertyName, {value, token, committed: false});
 
-	if (updatedContent !== content) {
-		await app.vault.modify(file, updatedContent);
+	try {
+		await app.vault.process(file, (content) => updatePropertyInMarkdown(content, propertyName, value));
+		markPendingProjectPropertyUpdateCommitted(app, file, propertyName, token);
+	} catch (error) {
+		clearPendingProjectPropertyUpdate(app, file, propertyName, token);
+		throw error;
 	}
 }
 
@@ -152,6 +166,98 @@ export async function repairProjectFrontmatter(app: App, file: TFile): Promise<b
 
 export function getFrontmatter(cache: CachedMetadata | null): Record<string, unknown> {
 	return (cache?.frontmatter ?? {}) as Record<string, unknown>;
+}
+
+function applyPendingProjectPropertyUpdates(
+	app: App,
+	file: TFile,
+	frontmatter: Record<string, unknown>,
+): Record<string, unknown> {
+	const fileUpdates = pendingProjectPropertyUpdates.get(app)?.get(file.path);
+	if (!fileUpdates || fileUpdates.size === 0) {
+		return frontmatter;
+	}
+
+	const resolvedFrontmatter = {...frontmatter};
+	for (const [propertyName, update] of fileUpdates) {
+		if (update.committed && projectPropertyValuesEqual(frontmatter[propertyName], update.value)) {
+			clearPendingProjectPropertyUpdate(app, file, propertyName, update.token);
+			continue;
+		}
+
+		if (update.value === null) {
+			delete resolvedFrontmatter[propertyName];
+		} else {
+			resolvedFrontmatter[propertyName] = update.value;
+		}
+	}
+
+	return resolvedFrontmatter;
+}
+
+function setPendingProjectPropertyUpdate(
+	app: App,
+	file: TFile,
+	propertyName: string,
+	update: PendingProjectPropertyUpdate,
+): void {
+	let appUpdates = pendingProjectPropertyUpdates.get(app);
+	if (!appUpdates) {
+		appUpdates = new Map();
+		pendingProjectPropertyUpdates.set(app, appUpdates);
+	}
+
+	let fileUpdates = appUpdates.get(file.path);
+	if (!fileUpdates) {
+		fileUpdates = new Map();
+		appUpdates.set(file.path, fileUpdates);
+	}
+
+	fileUpdates.set(propertyName, update);
+}
+
+function markPendingProjectPropertyUpdateCommitted(
+	app: App,
+	file: TFile,
+	propertyName: string,
+	token: symbol,
+): void {
+	const update = pendingProjectPropertyUpdates.get(app)?.get(file.path)?.get(propertyName);
+	if (update?.token === token) {
+		update.committed = true;
+	}
+}
+
+function clearPendingProjectPropertyUpdate(
+	app: App,
+	file: TFile,
+	propertyName: string,
+	token: symbol,
+): void {
+	const appUpdates = pendingProjectPropertyUpdates.get(app);
+	const fileUpdates = appUpdates?.get(file.path);
+	if (fileUpdates?.get(propertyName)?.token !== token) {
+		return;
+	}
+
+	fileUpdates.delete(propertyName);
+	if (fileUpdates.size === 0) {
+		appUpdates?.delete(file.path);
+	}
+}
+
+function projectPropertyValuesEqual(cachedValue: unknown, pendingValue: ProjectPropertyInputValue): boolean {
+	if (pendingValue === null) {
+		return cachedValue === null || cachedValue === undefined;
+	}
+
+	if (Array.isArray(pendingValue)) {
+		return Array.isArray(cachedValue)
+			&& cachedValue.length === pendingValue.length
+			&& cachedValue.every((value, index) => readString(value) === pendingValue[index]);
+	}
+
+	return readString(cachedValue) === String(pendingValue);
 }
 
 function normalizeTag(tag: string): string {
