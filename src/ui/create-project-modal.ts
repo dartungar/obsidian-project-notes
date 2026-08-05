@@ -198,9 +198,6 @@ export class CreateProjectModal extends Modal {
 
 	private addNumberSetting(property: ProjectPropertyDefinition): void {
 		const value = this.getNumberValue(property);
-		const valueEl = this.contentEl.ownerDocument.createElement("span");
-		valueEl.addClass("spv-setting-value");
-		valueEl.setText(String(value));
 
 		new Setting(this.contentEl)
 			.setName(property.label)
@@ -210,11 +207,7 @@ export class CreateProjectModal extends Modal {
 					.setValue(value)
 					.onChange((nextValue) => {
 						this.values.propertyValues[property.id] = nextValue;
-						valueEl.setText(String(nextValue));
 					});
-			})
-			.then((setting) => {
-				setting.controlEl.prepend(valueEl);
 			});
 	}
 

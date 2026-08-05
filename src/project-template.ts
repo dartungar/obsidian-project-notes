@@ -1,5 +1,6 @@
 import {getPropertyTokenName, normalizePropertyInputValue} from "./project-properties";
 import type {ProjectPropertyDefinition, ProjectPropertyInputValue} from "./project-properties";
+import {appendPropertyListItemInMarkdown, updatePropertyInMarkdown} from "./project-frontmatter";
 import type {SimpleProjectViewsSettings} from "./settings";
 
 export interface ProjectCreationValues {
@@ -20,11 +21,51 @@ export function buildProjectPath(settings: SimpleProjectViewsSettings, values: P
 }
 
 export function buildProjectContent(settings: SimpleProjectViewsSettings, values: ProjectCreationValues, template: string): string {
-	const content = renderTemplate(template, settings, values, {
+	const renderedContent = renderTemplate(template, settings, values, {
 		project_properties: buildProjectProperties(settings, values),
 	});
+	const content = applyProjectProperties(renderedContent, settings, values);
 
 	return content.endsWith("\n") ? content : `${content}\n`;
+}
+
+function applyProjectProperties(
+	content: string,
+	settings: SimpleProjectViewsSettings,
+	values: ProjectCreationValues,
+): string {
+	let updatedContent = content;
+	const projectTag = settings.projectTag.trim().replace(/^#/, "");
+	const projectPropertyName = settings.projectPropertyName.trim();
+	const projectPropertyValue = settings.projectPropertyValue.trim() || "true";
+
+	if (settings.projectMatchType === "tag" && projectTag) {
+		updatedContent = appendPropertyListItemInMarkdown(updatedContent, "tags", projectTag);
+	}
+
+	if (settings.projectMatchType === "property" && projectPropertyName) {
+		updatedContent = updatePropertyInMarkdown(updatedContent, projectPropertyName, projectPropertyValue);
+	}
+
+	if (settings.propertyNames.status.trim() && values.status) {
+		updatedContent = updatePropertyInMarkdown(updatedContent, settings.propertyNames.status, values.status);
+	}
+
+	if (settings.enabledProperties.icon && settings.propertyNames.icon.trim() && values.icon) {
+		updatedContent = updatePropertyInMarkdown(updatedContent, settings.propertyNames.icon, values.icon);
+	}
+
+	for (const property of settings.projectProperties) {
+		const propertyName = property.name.trim();
+		const value = normalizePropertyInputValue(property, values.propertyValues[property.id] ?? null);
+		if (!propertyName || value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
+			continue;
+		}
+
+		updatedContent = updatePropertyInMarkdown(updatedContent, propertyName, value);
+	}
+
+	return updatedContent;
 }
 
 function renderTemplate(
